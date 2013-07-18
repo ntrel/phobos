@@ -1053,12 +1053,14 @@ Allows to directly use range operations on lines of a file.
 */
     struct ByLine(Char, Terminator)
     {
+    private:
         File file;
         Char[] line;
         Terminator terminator;
         KeepTerminator keepTerminator;
-        bool first_call = true;
-
+        bool gotFront = false;
+        
+    public:
         this(File f, KeepTerminator kt = KeepTerminator.no,
                 Terminator terminator = '\n')
         {
@@ -1070,10 +1072,10 @@ Allows to directly use range operations on lines of a file.
         /// Range primitive implementations.
         @property bool empty() const
         {
-            if (line !is null) return false;
+            if (gotFront && line !is null) return false;
             if (!file.isOpen) return true;
 
-            // First read ever, must make sure stream is not empty. We
+            // Must make sure stream is not empty. We
             // do so by reading a character and putting it back. Doing
             // so is guaranteed to work on all files opened in all
             // buffering modes. Although we internally mutate the
@@ -1093,16 +1095,24 @@ Allows to directly use range operations on lines of a file.
         /// Ditto
         @property Char[] front()
         {
-            if (first_call)
+            if (!gotFront)
             {
-                popFront();
-                first_call = false;
+                readLine();
+                gotFront = true;
             }
             return line;
         }
 
         /// Ditto
         void popFront()
+        {
+            // skip unused line
+            if (!gotFront)
+                readLine();
+            gotFront = false;
+        }
+
+        private void readLine()
         {
             assert(file.isOpen);
             assumeSafeAppend(line);
@@ -1207,6 +1217,7 @@ void main()
                 lines.popFront();
                 i = 1;
             }
+            assert(lines.empty || lines.front is lines.front);
             foreach (line; lines)
             {
                 assert(line == witness[i++]);
@@ -1219,12 +1230,29 @@ void main()
         test("asd\ndef\nasdf", [ "asd", "def", "asdf" ]);
         test("asd\ndef\nasdf", [ "asd", "def", "asdf" ], KeepTerminator.no, true);
         test("asd\ndef\nasdf\n", [ "asd", "def", "asdf" ]);
+        test("foo", [ "foo" ], KeepTerminator.no, true);
 
         test("", null, KeepTerminator.yes);
         test("\n", [ "\n" ], KeepTerminator.yes);
         test("asd\ndef\nasdf", [ "asd\n", "def\n", "asdf" ], KeepTerminator.yes);
         test("asd\ndef\nasdf\n", [ "asd\n", "def\n", "asdf\n" ], KeepTerminator.yes);
         test("asd\ndef\nasdf\n", [ "asd\n", "def\n", "asdf\n" ], KeepTerminator.yes, true);
+        test("foo", [ "foo" ], KeepTerminator.yes, false);
+
+        // bug 9599
+        auto file = File.tmpfile();
+        file.write("1\n2\n3\n");
+
+        file.rewind();
+        auto fbl = file.byLine();
+        assert(fbl.take(1).equal(["1"]));
+        assert(fbl.equal(["2", "3"]));
+        assert(fbl.empty);
+        
+        file.rewind();
+        assert(!fbl.drop(2).empty);
+        assert(fbl.equal(["3"]));
+        assert(fbl.empty);
     }
 
     template byRecord(Fields...)
