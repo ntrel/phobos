@@ -1070,7 +1070,7 @@ Allows to directly use range operations on lines of a file.
         }
 
         /// Range primitive implementations.
-        @property bool empty() const
+        @property bool empty()
         {
             if (gotFront && line !is null) return false;
             if (!file.isOpen) return true;
@@ -1085,6 +1085,7 @@ Allows to directly use range operations on lines of a file.
             auto c = fgetc(mutableFP);
             if (c == -1)
             {
+                file.detach();
                 return true;
             }
             ungetc(c, mutableFP) == c
@@ -1239,20 +1240,28 @@ void main()
         test("asd\ndef\nasdf\n", [ "asd\n", "def\n", "asdf\n" ], KeepTerminator.yes, true);
         test("foo", [ "foo" ], KeepTerminator.yes, false);
 
-        // bug 9599
         auto file = File.tmpfile();
         file.write("1\n2\n3\n");
 
+        // bug 9599
         file.rewind();
         auto fbl = file.byLine();
         assert(fbl.take(1).equal(["1"]));
         assert(fbl.equal(["2", "3"]));
         assert(fbl.empty);
+        assert(file.isOpen); // we still have a valid reference
         
         file.rewind();
+        fbl = file.byLine();
         assert(!fbl.drop(2).empty);
         assert(fbl.equal(["3"]));
         assert(fbl.empty);
+        assert(file.isOpen);
+        
+        file.detach();
+        assert(!file.isOpen);
+        
+        assert(File.tmpfile().byLine().empty);
     }
 
     template byRecord(Fields...)
