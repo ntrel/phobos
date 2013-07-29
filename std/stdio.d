@@ -1054,6 +1054,32 @@ Allows to directly use range operations on lines of a file.
     struct ByLine(Char, Terminator)
     {
     private:
+        /* Ref-counting stops the source range's ByLineImpl.gotFront
+         * from getting out of sync after the range is copied, e.g.
+         * when using std.range.take after accessing range.front. */
+        alias Impl = RefCounted!(ByLineImpl!(Char, Terminator),
+            RefCountedAutoInitialize.no);
+        Impl impl;
+        
+    public:
+        this(File f, KeepTerminator kt = KeepTerminator.no,
+                Terminator terminator = '\n')
+        {
+            impl = Impl(f, kt, terminator);
+        }
+        
+        @property
+        ref get()
+        {
+            return impl;
+        }
+        
+        alias get this;
+    }
+
+    private struct ByLineImpl(Char, Terminator)
+    {
+    private:
         File file;
         Char[] line;
         Terminator terminator;
@@ -1245,7 +1271,10 @@ void main()
 
         // bug 9599
         file.rewind();
-        auto fbl = file.byLine();
+        File.ByLine!(char, char) fbl = file.byLine();
+        auto fbl2 = fbl;
+        assert(fbl.front == "1");
+        assert(fbl.front is fbl2.front);
         assert(fbl.take(1).equal(["1"]));
         assert(fbl.equal(["2", "3"]));
         assert(fbl.empty);
