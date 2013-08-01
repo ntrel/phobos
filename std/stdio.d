@@ -1102,7 +1102,7 @@ Allows to directly use range operations on lines of a file.
             keepTerminator = kt;
         }
 
-        /// Range primitive implementations.
+        // Range primitive implementations.
         @property bool empty()
         {
             if (gotFront && line !is null) return false;
@@ -1126,7 +1126,6 @@ Allows to directly use range operations on lines of a file.
             return false;
         }
 
-        /// Ditto
         @property Char[] front()
         {
             if (!gotFront)
@@ -1137,7 +1136,6 @@ Allows to directly use range operations on lines of a file.
             return line;
         }
 
-        /// Ditto
         void popFront()
         {
             // skip unused line
