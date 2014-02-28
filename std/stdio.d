@@ -1551,6 +1551,10 @@ Allows to directly use range operations on lines of a file.
         Char[] line;
         Terminator terminator;
         KeepTerminator keepTerminator;
+        // Eagerly read into a buffer, because reading one char at a time is too slow
+        Char[] buffer;
+        // remainder of buffer to search
+        Char[] searchBuf;
 
     public:
         this(File f, KeepTerminator kt, Terminator terminator)
@@ -1558,6 +1562,7 @@ Allows to directly use range operations on lines of a file.
             file = f;
             this.terminator = terminator;
             keepTerminator = kt;
+            buffer.length = 4096;
             popFront();
         }
 
@@ -1590,30 +1595,79 @@ Allows to directly use range operations on lines of a file.
 
         void popFront()
         {
-            import std.algorithm : endsWith;
-
+            import std.string : indexOf;
+            import core.stdc.string : memmove;
+        
             assert(file.isOpen);
-            assumeSafeAppend(line);
-            file.readln(line, terminator);
-            if (line.empty)
+            if (searchBuf.length == 0)
             {
-                file.detach();
-                line = null;
+                searchBuf = file.rawRead(buffer);
+                if (searchBuf.length == 0)
+                {
+                    file.detach();
+                    line = null;
+                    return;
+                }
             }
-            else if (keepTerminator == KeepTerminator.no
-                    && std.algorithm.endsWith(line, terminator))
+    
+            int pos = searchBuf.indexOf(terminator);
+            if (pos != -1)
             {
                 static if (isScalarType!Terminator)
                     enum tlen = 1;
                 else static if (isArray!Terminator)
                 {
+                    // ensure comparable lengths
                     static assert(
                         is(Unqual!(ElementEncodingType!Terminator) == Char));
                     const tlen = terminator.length;
                 }
                 else
                     static assert(false);
-                line = line.ptr[0 .. line.length - tlen];
+
+                if (keepTerminator == KeepTerminator.no)
+                    line = searchBuf[0 .. pos];
+                else
+                    line = searchBuf[0 .. pos + tlen];
+
+                // Pop the line, skipping the terminator:
+                searchBuf = searchBuf[pos + tlen .. $];
+            }
+            else
+            {
+                // More needs to be read here. Copy the tail of the buffer
+                // to the beginning, and try to read with the empty part of
+                // the buffer.
+                // If no buffer was left, extend the size of the buffer before
+                // reading. If the file has ended, then the line is the entire
+                // buffer.
+    
+                if (searchBuf.ptr != buffer.ptr)
+                {
+                    // Must use memmove because there might be overlap
+                    memmove(buffer.ptr, searchBuf.ptr, searchBuf.length * Char.sizeof);
+                }
+                int spaceBegin = searchBuf.length;
+                if (searchBuf.length == buffer.length)
+                {
+                    // Must extend the buffer to keep reading.
+                    assumeSafeAppend(buffer);
+                    buffer.length *= 2;
+                }
+                Char[] readPart = file.rawRead(buffer[spaceBegin .. $]);
+                if (readPart.length == 0)
+                {
+                    // End of the file. Return what's in the buffer.
+                    // The next popFront() will try to read again, and then
+                    // mark empty condition.
+                    line = buffer[0 .. spaceBegin];
+                    searchBuf = null;
+                    return;
+                }
+                searchBuf = buffer[0 .. spaceBegin + readPart.length];
+                // Now that we have new data in searchBuf, we can go on.
+                // If a line isn't found, the buffer will be extended again to read more.
+                popFront();
             }
         }
     }
