@@ -1597,6 +1597,7 @@ Allows to directly use range operations on lines of a file.
         {
             import std.string : indexOf;
             import core.stdc.string : memmove;
+            import std.utf : validate;
         
             assert(file.isOpen);
             if (searchBuf.length == 0)
@@ -1630,6 +1631,8 @@ Allows to directly use range operations on lines of a file.
                 else
                     line = searchBuf[0 .. pos + tlen];
 
+                static if (isSomeChar!Char)
+                    line.validate();
                 // Pop the line, skipping the terminator:
                 searchBuf = searchBuf[pos + tlen .. $];
             }
@@ -1661,6 +1664,8 @@ Allows to directly use range operations on lines of a file.
                     // The next popFront() will try to read again, and then
                     // mark empty condition.
                     line = buffer[0 .. spaceBegin];
+                    static if (isSomeChar!Char)
+                        line.validate();
                     searchBuf = null;
                     return;
                 }
@@ -1677,7 +1682,8 @@ Returns an input range set up to read from the file handle one line
 at a time.
 
 The element type for the range will be $(D Char[]). Range primitives
-may throw $(D StdioException) on I/O error.
+may throw $(D StdioException) on I/O error, or $(D UTFException) on UTF
+decoding error.
 
 Note:
 Each $(D front) will not persist after $(D
