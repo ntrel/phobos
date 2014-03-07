@@ -5143,6 +5143,14 @@ if (isForwardRange!R1 && isForwardRange!R2)
     }
 }
 
+/// ditto
+auto findSplit(alias pred = "a == b", R, E)(R haystack, E needle)
+if (isForwardRange!R && __traits(compiles, haystack.front == needle))
+{
+    E[1] arr = needle;
+    return .findSplit!pred(haystack, arr[]);
+}
+
 /// Ditto
 auto findSplitBefore(alias pred = "a == b", R1, R2)(R1 haystack, R2 needle)
 if (isForwardRange!R1 && isForwardRange!R2)
@@ -5229,7 +5237,7 @@ unittest
     assert(r[0] == a);
     assert(r[1].empty);
     assert(r[2].empty);
-    r = findSplit(a, " ");
+    r = findSplit(a, ' ');
     assert(r[0] == "Carl");
     assert(r[1] == " ");
     assert(r[2] == "Sagan Memorial Station");
