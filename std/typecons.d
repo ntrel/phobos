@@ -65,8 +65,6 @@ else
     alias RefT = T*;
 
 public:
-    // Deferred in case we get some language support for checking uniqueness.
-    version(None)
     /**
     Allows safe construction of $(D Unique). It creates the resource and
     guarantees unique ownership of it (unless $(D T) publishes aliases of
@@ -84,7 +82,24 @@ public:
     {
         debug(Unique) writeln("Unique.create for ", T.stringof);
         Unique!T u;
-        u._p = new T(args);
+        // TODO: classes
+        static if (is(T:Object))
+            u._p = new T(args);
+        else
+        {
+            import core.memory : GC;
+            import core.stdc.stdlib : malloc;
+            import std.conv : emplace;
+            import std.exception : enforce;
+
+            // TODO: non-value types, class alignment
+            static assert(isPointer!RefT);
+            u._p = cast(T*) enforce(malloc(T.sizeof));
+            static if (hasIndirections!T)
+                GC.addRange(u.getPtr, T.sizeof);
+            emplace(u._p, args);
+            u.gc = false;
+        }
         return u;
     }
 
@@ -132,6 +147,7 @@ public:
     {
         debug(Unique) writeln("Unique constructor converting from ", U.stringof);
         _p = u._p;
+        gc = u.gc;
         u._p = null;
     }
 
@@ -143,14 +159,36 @@ public:
         // first delete any resource we own
         destroy(this);
         _p = u._p;
+        gc = u.gc;
         u._p = null;
     }
-
+    
     ~this()
     {
         debug(Unique) writeln("Unique destructor of ", (_p is null)? null: _p);
-        if (_p !is null) delete _p;
-        _p = null;
+        if (_p !is null)
+        {
+            version(unittest)
+            {
+                import core.memory : GC;
+                bool canFind = GC.sizeOf(getPtr) > 0;
+                assert(gc ? canFind : !canFind);
+            }
+            if (gc)
+                delete _p;
+            else
+            {
+                _p.destroy();
+                static if (hasIndirections!T)
+                {
+                    import core.memory : GC;
+                    GC.removeRange(getPtr);
+                }
+                import core.stdc.stdlib : free;
+                free(getPtr);
+            }
+            _p = null;
+        }
     }
     /** Returns whether the resource exists. */
     @property bool isEmpty() const
@@ -162,6 +200,7 @@ public:
     {
         debug(Unique) writeln("Release");
         auto u = Unique(_p);
+        u.gc = gc;
         assert(_p is null);
         debug(Unique) writeln("return from Release");
         return u;
@@ -176,6 +215,16 @@ public:
 
 private:
     RefT _p;
+    // for compatibility with Unique.create and `Unique u = new T`
+    bool gc = true;
+
+    @property void* getPtr()
+    {
+        static if (isPointer!RefT)
+            return _p;
+        else
+            return cast(void*)_p;
+    }
 }
 
 ///
@@ -189,7 +238,7 @@ unittest
     Unique!S produce()
     {
         // Construct a unique instance of S on the heap
-        Unique!S ut = new S(5);
+        auto ut = Unique!(S).create(5);
         // Implicit transfer of ownership
         return ut;
     }
