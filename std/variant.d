@@ -1367,17 +1367,10 @@ values of their own type within.
 This is achieved with `Algebraic` by using `This` as a placeholder whenever a
 reference to the type being defined is needed. The `Algebraic` instantiation
 will perform $(LUCKY alpha renaming) on its constituent types, replacing `This`
-with the self-referenced type. The structure of the type involving `This` may
-be arbitrarily complex.
+with the self-referenced type.
 */
 unittest
 {
-    // A tree is either a leaf or a branch of two other trees
-    alias Tree(Leaf) = Algebraic!(Leaf, Tuple!(This*, This*));
-    Tree!int tree = tuple(new Tree!int(42), new Tree!int(43));
-    Tree!int* right = tree.get!1[1];
-    assert(*right == 43);
-
     // An object is a double, a string, or a hash of objects
     alias Obj = Algebraic!(double, string, This[string]);
     Obj obj = "hello";
@@ -1386,6 +1379,19 @@ unittest
     assert(obj.get!0 == 42);
     obj = ["customer": Obj("John"), "paid": Obj(23.95)];
     assert(obj.get!2["customer"] == "John");
+}
+
+/// The structure of the type involving `This` may be arbitrarily complex:
+unittest
+{
+    // A tree is either a leaf or a branch of two other trees
+    alias Tree(Leaf) = Algebraic!(Leaf, Tuple!(This*, This*));
+    Tree!int tree = tuple(new Tree!int(42), new Tree!int(43));
+    // Get tuple from tree
+    auto tup = tree.get!1;
+    Tree!int* right = tup[1];
+    assert(*right == 43);
+    assert(*tup[0] == 42);
 }
 
 /**
