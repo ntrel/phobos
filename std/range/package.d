@@ -7396,8 +7396,8 @@ private struct OnlyResult(T, size_t arity : 0)
 {
     private static struct EmptyElementType {}
 
-    bool empty() @property { return true; }
-    size_t length() const @property { return 0; }
+    enum empty = true;
+    enum size_t length = 0;
     alias opDollar = length;
     EmptyElementType front() @property { assert(false); }
     void popFront() { assert(false); }
@@ -7442,11 +7442,12 @@ auto only(Values...)(auto ref Values values)
 {
     import std.algorithm.comparison : equal;
     import std.algorithm.iteration : filter, joiner, map;
-    import std.algorithm.searching : findSplitBefore;
+    import std.algorithm.searching : find;
     import std.uni : isUpper;
 
-    assert(equal(only('♡'), "♡"));
-    assert([1, 2, 3, 4].findSplitBefore(only(3))[0] == [1, 2]);
+    static assert(only().empty);
+    assert(only('♡').equal("♡"));
+    assert(only(1, 2, 3, 4).find(3).equal([3, 4]));
 
     assert(only("one", "two", "three").joiner(" ").equal("one two three"));
 
