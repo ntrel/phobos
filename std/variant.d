@@ -146,7 +146,7 @@ private:
     // Each internal operation is encoded with an identifier. See
     // the "handler" function below.
     enum OpID { getTypeInfo, get, compare, equals, testConversion, toString,
-            index, indexAssign, catAssign, copyOut, length,
+            index, indexAssign, slice, catAssign, copyOut, length,
             apply, postblit, destruct }
 
     // state
@@ -191,6 +191,7 @@ private:
         case OpID.testConversion:
         case OpID.index:
         case OpID.indexAssign:
+        case OpID.slice:
         case OpID.catAssign:
         case OpID.length:
             throw new VariantException(
@@ -433,6 +434,19 @@ private:
             else
             {
                 throw new VariantException(typeid(A), args[0].type);
+            }
+
+        case OpID.slice:
+            auto result = cast(Variant*) parm;
+            static if (isArray!A)
+            {
+                *result = (*zis)[];
+                break;
+            }
+            else
+            {
+                throw new VariantException(
+                    "Cannot slice " ~ A.stringof ~ " held by " ~ VariantN.stringof);
             }
 
         case OpID.catAssign:
@@ -1127,6 +1141,31 @@ public:
     Variant opIndexOpAssign(string op, T, N)(T value, N i)
     {
         return opIndexAssign(mixin(`opIndex(i)` ~ op ~ `value`), i);
+    }
+
+    /** Slices an array held by `VariantN`.
+     * Throws: `VariantException` if an array is not held.
+     */
+    const(Variant) opSlice() inout
+    {
+        Variant result;
+        fptr(OpID.slice, cast(ubyte[size]*) &store, &result) == 0 || assert(false);
+        return result;
+    }
+
+    ///
+    static if (is(VariantN == Variant))
+    unittest
+    {
+        import std.exception : assertThrown;
+
+        int[1] arr = 2;
+        Variant v = arr;
+        assert(v[] == [2]);
+
+        v = 1;
+        // Can't slice integer
+        assertThrown!VariantException(v[]);
     }
 
     /** If the $(D VariantN) contains an (associative) array,
