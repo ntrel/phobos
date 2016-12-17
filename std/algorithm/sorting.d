@@ -1506,9 +1506,12 @@ private void shortSort(alias less, Range)(Range r)
     assert(r.length >= 6);
     /* The last 5 elements of the range are sorted. Proceed with expanding the
     sorted portion downward. */
-    immutable maxJ = r.length - 2;
     for (size_t i = r.length - 6; ; --i)
     {
+        // Establish sentinel maximum
+        if (pred(r[r.length - 1], r[i]))
+            r.swapAt(i, r.length - 1);
+
         static if (is(typeof(() nothrow {
                 auto t = r[0]; if (pred(t, r[0])) r[0] = r[0];
             }))) // Can we afford to temporarily invalidate the array?
@@ -1522,7 +1525,7 @@ private void shortSort(alias less, Range)(Range r)
                     r[j - 1] = r[j];
                     ++j;
                 }
-                while (j < r.length && pred(r[j], temp));
+                while (pred(r[j], temp));
                 r[j - 1] = temp;
             }
         }
@@ -1532,7 +1535,6 @@ private void shortSort(alias less, Range)(Range r)
             while (pred(r[j + 1], r[j]))
             {
                 r.swapAt(j, j + 1);
-                if (j == maxJ) break;
                 ++j;
             }
         }
@@ -1771,7 +1773,7 @@ unittest
     // This should get smaller with time. On occasion it may go larger, but only
     // if there's thorough justification.
     debug enum uint watermark = 1676280;
-    else enum uint watermark = 1676220;
+    else enum uint watermark = 1753588;
 
     import std.conv;
     assert(comps <= watermark, text("You seem to have pessimized sort! ",
