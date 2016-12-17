@@ -1162,10 +1162,19 @@ public:
         int[1] arr = 2;
         Variant v = arr;
         assert(v[] == [2]);
+        v[] += 3;
+        assert(v[] == [3]);
 
         v = 1;
         // Can't slice integer
         assertThrown!VariantException(v[]);
+    }
+
+    /// ditto
+    //todo opSliceAssign
+    Variant opSliceOpAssign(string op, T)(T value)
+    {
+        return opSliceAssign(opSlice() = value);
     }
 
     /** If the $(D VariantN) contains an (associative) array,
