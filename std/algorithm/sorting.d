@@ -1452,6 +1452,95 @@ Sorting routine that is optimized for short ranges. Note: uses insertion sort
 going downward. Benchmarked a similar routine that goes upward, for some reason
 it's slower.
 */
+private void shortSort_(alias less, Range)(Range r)
+{
+    import std.algorithm.mutation : swapAt;
+    alias pred = binaryFun!(less);
+
+    switch (r.length)
+    {
+        case 0: case 1:
+            return;
+        case 2:
+            if (pred(r[1], r[0])) r.swapAt(0, 1);
+            return;
+        case 3:
+            if (pred(r[2], r[0]))
+            {
+                if (pred(r[0], r[1]))
+                {
+                    r.swapAt(0, 1);
+                    r.swapAt(0, 2);
+                }
+                else
+                {
+                    r.swapAt(0, 2);
+                    if (pred(r[1], r[0])) r.swapAt(0, 1);
+                }
+            }
+            else
+            {
+                if (pred(r[1], r[0]))
+                {
+                    r.swapAt(0, 1);
+                }
+                else
+                {
+                    if (pred(r[2], r[1])) r.swapAt(1, 2);
+                }
+            }
+            return;
+        case 4:
+            if (pred(r[1], r[0])) r.swapAt(0, 1);
+            if (pred(r[3], r[2])) r.swapAt(2, 3);
+            if (pred(r[2], r[0])) r.swapAt(0, 2);
+            if (pred(r[3], r[1])) r.swapAt(1, 3);
+            if (pred(r[2], r[1])) r.swapAt(1, 2);
+            return;
+        default:
+            sort5!pred(r[r.length - 5 .. r.length]);
+            if (r.length == 5) return;
+            break;
+    }
+
+    assert(r.length >= 6);
+    /* The last 5 elements of the range are sorted. Proceed with expanding the
+    sorted portion downward. */
+    immutable maxJ = r.length - 2;
+    for (size_t i = r.length - 6; ; --i)
+    {
+        static if (is(typeof(() nothrow
+            {
+                auto t = r[0]; if (pred(t, r[0])) r[0] = r[0];
+            }))) // Can we afford to temporarily invalidate the array?
+        {
+            size_t j = i + 1;
+            auto temp = r[i];
+            if (pred(r[j], temp))
+            {
+                do
+                {
+                    r[j - 1] = r[j];
+                    ++j;
+                }
+                while (j < r.length && pred(r[j], temp));
+                r[j - 1] = temp;
+            }
+        }
+        else
+        {
+            size_t j = i;
+            while (pred(r[j + 1], r[j]))
+            {
+                r.swapAt(j, j + 1);
+                if (j == maxJ) break;
+                ++j;
+            }
+        }
+        if (i == 0) break;
+    }
+}
+
 private void shortSort(alias less, Range)(Range r)
 {
     import std.algorithm.mutation : swapAt;
@@ -1549,15 +1638,27 @@ private void shortSort(alias less, Range)(Range r)
     debug(std_algorithm) scope(success)
         writeln("unittest @", __FILE__, ":", __LINE__, " done.");
 
+    import std.datetime;
+    import std.stdio;
     auto rnd = Random(1);
-    auto a = new int[uniform(100, 200, rnd)];
+    long[2] bt;
+foreach (_; 0 .. 100){
+    auto a = new int[uniform(100, 200)];
     foreach (ref e; a)
     {
-        e = uniform(-100, 100, rnd);
+        e = uniform(-100, 100);
     }
-
-    shortSort!(binaryFun!("a < b"), int[])(a);
+    const tmp = a.dup;
+    auto r = 20.benchmark!(
+        {a[] = tmp; shortSort_!(binaryFun!("a < b"))(a);},
+        {a[] = tmp; shortSort!(binaryFun!("a < b"))(a);});
+    bt[0] += r[0].usecs;
+    bt[1] += r[1].usecs;
+    if (!isSorted(a)) a.writeln;
     assert(isSorted(a));
+}
+    bt.writeln;
+    writeln(bt[1] / real(bt[0]));
 }
 
 /*
