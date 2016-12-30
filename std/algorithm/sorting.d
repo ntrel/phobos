@@ -1598,22 +1598,22 @@ private void shortSort(alias less, Range)(Range r)
     size_t i = r.length - 6;
     do
     {
-        if (!pred(r[i + 1], r[i]))
-        {
-            continue;
-        }
-        // Establish sentinel maximum
-        if (pred(r[r.length - 1], r[i]))
-        {
-            r.swapAt(i, r.length - 1);
-            //~ foreach (j; i .. r.length - 1)
-                //~ r.swapAt(j, j + 1);
-            //~ return;
-        }
+        if (!pred(r[i + 1], r[i])) continue;
+
         static if (is(typeof(() nothrow {
                 auto t = r[0]; if (pred(t, r[0])) r[0] = r[0];
             }))) // Can we afford to temporarily invalidate the array?
         {
+            if (pred(r[$ - 1], r[i]))
+            {
+                // shift elements to the left
+                auto tmp = r[i];
+                foreach (j; i .. r.length - 1)
+                    r[j] = r[j + 1];
+                r[$ - 1] = tmp;
+                continue;
+            }
+            // here r[$-1] is bigger than the other elements, so we have a sentinel
             size_t j = i + 1;
             auto temp = r[i];
             do
@@ -1626,6 +1626,13 @@ private void shortSort(alias less, Range)(Range r)
         }
         else
         {
+            if (pred(r[$ - 1], r[i]))
+            {
+                r.swapAt(i, r.length - 1);
+                foreach (j; i .. r.length - 2)
+                    r.swapAt(j, j + 1);
+                continue;
+            }
             size_t j = i;
             do
             {
@@ -1878,14 +1885,14 @@ unittest
 
     // This should get smaller with time. On occasion it may go larger, but only
     // if there's thorough justification.
-    debug enum uint watermark = 1676280;
-    else enum uint watermark = 1753588;
+    debug enum uint watermark = 1709760;
+    else enum uint watermark = 1709700;
 
     import std.conv;
-    //~ assert(comps <= watermark, text("You seem to have pessimized sort! ",
-        //~ watermark, " < ", comps));
-    //~ assert(comps >= watermark, text("You seem to have improved sort!",
-        //~ " Please update watermark from ", watermark, " to ", comps));
+    assert(comps <= watermark, text("You seem to have pessimized sort! ",
+        watermark, " < ", comps));
+    assert(comps >= watermark, text("You seem to have improved sort!",
+        " Please update watermark from ", watermark, " to ", comps));
 }
 
 @safe unittest
