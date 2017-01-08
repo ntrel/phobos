@@ -1645,25 +1645,33 @@ private void shortSort(alias less, Range)(Range r)
 
     import std.datetime;
     import std.stdio;
-    auto rnd = Random(1);
-    long[2] bt;
-foreach (_; 0 .. 100){
-    auto a = new int[uniform(100, 200)];
-    foreach (ref e; a)
+    StopWatch sw;
+    sw.start();
+    long[2] ut;
+
+    foreach (_; 0 .. 10000)
     {
-        e = uniform(-100, 100);
+        auto a = new int[uniform(100, 200)];
+        foreach (ref e; a)
+        {
+            e = uniform(-100, 100);
+        }
+        const tmp = a.dup;
+
+        sw.reset();
+        shortSort_!(binaryFun!("a < b"))(a);
+        ut[0] += sw.peek.usecs;
+
+        a[] = tmp;
+        sw.reset();
+        shortSort!(binaryFun!("a < b"))(a);
+        ut[1] += sw.peek.usecs;
+
+        if (!isSorted(a)) a.writeln;
+        assert(isSorted(a));
     }
-    const tmp = a.dup;
-    auto r = 20.benchmark!(
-        {a[] = tmp; shortSort_!(binaryFun!("a < b"))(a);},
-        {a[] = tmp; shortSort!(binaryFun!("a < b"))(a);});
-    bt[0] += r[0].usecs;
-    bt[1] += r[1].usecs;
-    if (!isSorted(a)) a.writeln;
-    assert(isSorted(a));
-}
-    bt.writeln;
-    writeln(bt[1] / real(bt[0]));
+    ut.writeln;
+    writeln(ut[1] / real(ut[0]));
 }
 
 /*
