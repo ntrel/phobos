@@ -15,18 +15,18 @@ private import std.traits;
 
 /**************************************
  * ScopeBuffer encapsulates using a local array as a temporary buffer.
- * It is initialized with the local array that should be large enough for
- * most uses. If the need exceeds the size, ScopeBuffer will resize it
- * using malloc() and friends.
+ * It is initialized with a local array that should be large enough for
+ * most uses. If the need exceeds that size, ScopeBuffer will resort to
+ * using its `realloc` parameter to allocate the data.
  *
- * ScopeBuffer cannot contain more than (uint.max-16)/2 elements.
+ * ScopeBuffer cannot contain more than `(uint.max-16)/2` elements.
  *
- * ScopeBuffer is an OutputRange.
+ * ScopeBuffer is an Output Range.
  *
- * Since ScopeBuffer potentially stores elements of type T in malloc'd memory,
+ * Since ScopeBuffer stores elements of type `T` in `malloc`'d memory by default,
  * those elements are not scanned when the GC collects. This can cause
- * memory corruption. Do not use ScopeBuffer when elements of type T point
- * to the GC heap.
+ * memory corruption. Do not use ScopeBuffer when elements of type `T` point
+ * to the GC heap, except when a `realloc` function is provided which supports this.
  *
  * Example:
 ---
@@ -60,18 +60,18 @@ void main()
 }
 ---
  * It is invalid to access ScopeBuffer's contents when ScopeBuffer goes out of scope.
- * Hence, copying the contents are necessary to keep them around:
+ * Use $(LREF extract) to disown allocated storage or force a copy of the data:
 ---
 import std.internal.scopebuffer;
-string cat(string s1, string s2)
+char[] cat(string s1, string s2)
 {
     char[10] tmpbuf = void;
     auto textbuf = ScopeBuffer!char(tmpbuf);
-    scope(exit) textbuf.free();
     textbuf.put(s1);
     textbuf.put(s2);
     textbuf.put("even more");
-    return textbuf[].idup;
+    return textbuf.extract;
+    // free not necessary
 }
 ---
  * ScopeBuffer is intended for high performance usages in $(D @system) and $(D @trusted) code.
@@ -80,7 +80,7 @@ string cat(string s1, string s2)
  * $(D scope(exit) textbuf.free();) for proper cleanup, and do not refer to a ScopeBuffer
  * instance's contents after $(D ScopeBuffer.free()) has been called.
  *
- * The realloc parameter defaults to C's realloc(). Another can be supplied to override it.
+ * The `realloc` parameter defaults to C's `realloc()`. Another can be supplied to override it.
  *
  * ScopeBuffer instances may be copied, as in:
 ---
@@ -88,7 +88,7 @@ textbuf = doSomething(textbuf, args);
 ---
  * which can be very efficent, but these must be regarded as a move rather than a copy.
  * Additionally, the code between passing and returning the instance must not throw
- * exceptions, otherwise when ScopeBuffer.free() is called, memory may get corrupted.
+ * exceptions, otherwise when `ScopeBuffer.free()` is called, memory may get corrupted.
  */
 
 @system
@@ -194,11 +194,28 @@ struct ScopeBuffer(T, alias realloc = /*core.stdc.stdlib*/.realloc)
         used = cast(uint)newlen;
     }
 
+    /** Returns and disowns any storage allocated by `ScopeBuffer`, otherwise allocates a copy.
+     * Note: Storage is allocated by the `realloc` parameter.
+     */
+    T[] extract()
+    {
+        if (bufLen & wasResized)
+        {
+            // disown memory
+            bufLen &= ~wasResized;
+            return opSlice();
+        }
+        // force copy
+        auto tmp = ScopeBuffer(null);
+        tmp.put(opSlice());
+        return tmp.extract;
+    }
+
     /******
-     * Retrieve a slice into the result.
      * Returns:
-     *  A slice into the temporary buffer that is only
-     *  valid until the next put() or ScopeBuffer goes out of scope.
+     *  A slice into the temporary buffer.
+     * Warning:
+     *  The result is only valid until the next put() or ScopeBuffer goes out of scope.
      */
     @system inout(T)[] opSlice(size_t lower, size_t upper) inout
         in
@@ -338,15 +355,15 @@ unittest
 
 unittest
 {
-    string cat(string s1, string s2)
+    char[] cat(string s1, string s2)
     {
         char[10] tmpbuf = void;
         auto textbuf = ScopeBuffer!char(tmpbuf);
-        scope(exit) textbuf.free();
         textbuf.put(s1);
         textbuf.put(s2);
         textbuf.put("even more");
-        return textbuf[].idup;
+        return textbuf.extract;
+        // free not necessary
     }
 
     auto s = cat("hello", "betty");
