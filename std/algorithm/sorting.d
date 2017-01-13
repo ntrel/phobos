@@ -1591,28 +1591,48 @@ private void shortSort(alias less, Range)(Range r)
             if (r.length == 5) return;
             break;
     }
-
     assert(r.length >= 6);
-    size_t i = r.length - 6;
-    // bubble maximum to r[i]
-    foreach (j; 0 .. i)
+    const sortIdx = r.length - 6;
+    // Can we afford to temporarily invalidate the array?
+    enum canInvalidate = is(typeof(() nothrow {
+                auto t = r[0]; if (pred(t, r[0])) r[0] = r[0];
+            }));
+
+    // bubble maximum to r[sortIdx]
+    static if (canInvalidate)
+    for (int j = 0; j != sortIdx;)
+    {
+        if (!pred(r[j + 1], r[j]))
+        {
+            j++;
+            continue;
+        }
+        auto tmp = r[j];
+        do
+        {
+            r[j] = r[j + 1];
+        }
+        while (++j != sortIdx && pred(r[j + 1], r[j]));
+        r[j] = tmp;
+    }
+    else
+    foreach (j; 0 .. sortIdx)
     {
         if (pred(r[j + 1], r[j]))
             r.swapAt(j, j + 1);
     }
     // establish sentinel so r[$ - 1] is maximum
-    if (pred(r[$ - 1], r[i]))
-        r.swapAt(i, r.length - 1);
+    if (pred(r[$ - 1], r[sortIdx]))
+        r.swapAt(sortIdx, r.length - 1);
 
     /* The last 5 elements of the range are sorted. Proceed with expanding the
     sorted portion downward. */
+    size_t i = sortIdx;
     do
     {
         if (!pred(r[i + 1], r[i])) continue;
 
-        static if (is(typeof(() nothrow {
-                auto t = r[0]; if (pred(t, r[0])) r[0] = r[0];
-            }))) // Can we afford to temporarily invalidate the array?
+        static if (canInvalidate)
         {
             size_t j = i + 1;
             auto temp = r[i];
