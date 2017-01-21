@@ -745,15 +745,13 @@ final class RedBlackTree(T, alias less = "a < b", bool allowDuplicates = false)
 
     alias _less = binaryFun!less;
 
+    static if (is(typeof(less) == string))
+        private enum doUnittest = isIntegral!T && (less == "a < b" || less == "a > b");
+    else
+        private enum doUnittest = false;
+
     version(unittest)
     {
-        static if (is(typeof(less) == string))
-        {
-            private enum doUnittest = isIntegral!T && (less == "a < b" || less == "a > b");
-        }
-        else
-            enum doUnittest = false;
-
         // note, this must be final so it does not affect the vtable layout
         bool arrayEqual(T[] arr)
         {
@@ -768,10 +766,6 @@ final class RedBlackTree(T, alias less = "a < b", bool allowDuplicates = false)
             }
             return false;
         }
-    }
-    else
-    {
-        private enum doUnittest = false;
     }
 
     /**
