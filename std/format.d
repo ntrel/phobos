@@ -127,10 +127,11 @@ private alias enforceFmt = enforceEx!FormatException;
    Throws: Mismatched arguments and formats result in a $(D
    FormatException) being thrown.
 
-   Format_String: <a name="format-string">$(I Format strings)</a>
-   consist of characters interspersed with $(I format
+   $(ADEF format-string)
+   Format_Strings:
+   $(I Format strings) consist of characters interspersed with $(I format
    specifications). Characters are simply copied to the output (such
-   as putc) after any necessary conversion to the corresponding UTF-8
+   as `putc`) after any necessary conversion to the corresponding UTF-8
    sequence.
 
    The format string has the following grammar:
@@ -319,6 +320,7 @@ $(I FormatChar):
         ))
     )
 
+    Floating_Point_Constants:
     Floating point NaN's are formatted as $(B nan) if the
     $(I FormatChar) is lower case, or $(B NAN) if upper.
     Floating point infinities are formatted as $(B inf) or
@@ -326,7 +328,7 @@ $(I FormatChar):
     $(I FormatChar) is lower case, or $(B INF) or $(B INFINITY) if upper.
 
     The positional and non-positional styles can be mixed in the same
-    format string. (POSIX leaves this behavior undefined.) The internal
+    format string. (POSIX leaves this behavior undefined). The internal
     counter for non-positional parameters tracks the next parameter after
     the largest positional parameter already used.
 
@@ -399,8 +401,7 @@ $(CONSOLE
 )
 
     Inside a compound format specifier, strings and characters are escaped
-    automatically. To avoid this behavior, add $(B '-') flag to
-    $(D "%$(LPAREN)").
+    automatically. To avoid this behavior, use "`%-$(LPAREN)`".
     -------------------------
     import std.stdio;
 
