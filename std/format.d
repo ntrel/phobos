@@ -91,6 +91,21 @@ private alias enforceFmt = enforceEx!FormatException;
    encoding of the output is the same as $(D Char). The type $(D Writer)
    must satisfy $(D $(REF isOutputRange, std,range,primitives)!(Writer, Char)).
 
+   Params:
+
+   w = Output is sent to this writer. Typical output writers include
+   $(REF Appender!string, std,array) and $(REF LockingTextWriter, std,stdio).
+
+   fmt = Format string (see below).
+
+   args = Variadic argument list.
+
+   Returns: Formatted number of arguments.
+
+   Throws: Mismatched arguments and formats result in a $(D
+   FormatException) being thrown.
+
+   Variadic_Arguments:
    The variadic arguments are normally consumed in order. POSIX-style
    $(HTTP opengroup.org/onlinepubs/009695399/functions/printf.html,
    positional parameter syntax) is also supported. Each argument is
@@ -102,34 +117,14 @@ private alias enforceFmt = enforceEx!FormatException;
    than needed by the format specification, they are ignored but only
    if at least one argument was formatted.
 
-   The format string supports the formatting of array and nested array elements
-   via the grouping format specifiers $(B %&#40;) and $(B %&#41;). Each
-   matching pair of $(B %&#40;) and $(B %&#41;) corresponds with a single array
-   argument. The enclosed sub-format string is applied to individual array
-   elements.  The trailing portion of the sub-format string following the
-   conversion specifier for the array element is interpreted as the array
-   delimiter, and is therefore omitted following the last array element. The
-   $(B %|) specifier may be used to explicitly indicate the start of the
-   delimiter, so that the preceding portion of the string will be included
-   following the last array element.  (See below for explicit examples.)
-
-   Params:
-
-   w = Output is sent to this writer. Typical output writers include
-   $(REF Appender!string, std,array) and $(REF LockingTextWriter, std,stdio).
-
-   fmt = Format string.
-
-   args = Variadic argument list.
-
-   Returns: Formatted number of arguments.
-
-   Throws: Mismatched arguments and formats result in a $(D
-   FormatException) being thrown.
+   The positional and non-positional styles can be mixed in the same
+   format string. (POSIX leaves this behavior undefined). The internal
+   counter for non-positional parameters tracks the next parameter after
+   the largest positional parameter already used.
 
    $(ADEF format-string)
    Format_Strings:
-   $(I Format strings) consist of characters interspersed with $(I format
+   Format strings consist of characters interspersed with $(I format
    specifications). Characters are simply copied to the output (such
    as `putc`) after any necessary conversion to the corresponding UTF-8
    sequence.
@@ -327,10 +322,17 @@ $(I FormatChar):
     $(B infinity) if the
     $(I FormatChar) is lower case, or $(B INF) or $(B INFINITY) if upper.
 
-    The positional and non-positional styles can be mixed in the same
-    format string. (POSIX leaves this behavior undefined). The internal
-    counter for non-positional parameters tracks the next parameter after
-    the largest positional parameter already used.
+    Array_Formatting:
+    The format string supports the formatting of array and nested array elements
+    via the grouping format specifiers $(B %&#40;) and $(B %&#41;). Each
+    matching pair of $(B %&#40;) and $(B %&#41;) corresponds with a single array
+    argument. The enclosed sub-format string is applied to individual array
+    elements.  The trailing portion of the sub-format string following the
+    conversion specifier for the array element is interpreted as the array
+    delimiter, and is therefore omitted following the last array element. The
+    $(B %|) specifier may be used to explicitly indicate the start of the
+    delimiter, so that the preceding portion of the string will be included
+    following the last array element.  (See below for explicit examples.)
 
     Example using array and nested array formatting:
     -------------------------
