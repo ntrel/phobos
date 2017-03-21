@@ -105,6 +105,12 @@ private alias enforceFmt = enforceEx!FormatException;
    Throws: Mismatched arguments and formats result in a $(D
    FormatException) being thrown.
 
+   Example:
+   ---
+   formattedWrite!"%s is the ultimate %s."(myOutputRange, 42, "answer");
+   ---
+   For full example, see below.
+
    Variadic_Arguments:
    The variadic arguments are normally consumed in order. POSIX-style
    $(HTTP opengroup.org/onlinepubs/009695399/functions/printf.html,
