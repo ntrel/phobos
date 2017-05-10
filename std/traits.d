@@ -2322,10 +2322,11 @@ template hasNested(T)
         enum hasNested = hasNested!(typeof(T.init[0]));
     else static if (is(T == class) || is(T == struct) || is(T == union))
     {
-        // prevent infinite recursion for class with member of same type
-        enum notSame(U) = !is(Unqual!T == Unqual!U);
+        // Class is not a value type so ignore class fields
+        // Also prevents infinite recursion for class with member of same type
+        enum notClass(U) = !is(U == class);
         enum hasNested = isNested!T ||
-            anySatisfy!(.hasNested, Filter!(notSame, Fields!T));
+            anySatisfy!(.hasNested, Filter!(notClass, Fields!T));
     }
     else
         enum hasNested = false;
@@ -2397,6 +2398,13 @@ template hasNested(T)
     {
         A a;
     }
+    static assert(!hasNested!A);
+
+    static class B
+    {
+        NestedClass nc;
+    }
+    // nc is a reference, not a value
     static assert(!hasNested!A);
 }
 
