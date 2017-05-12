@@ -4249,16 +4249,27 @@ buffer, without breaking the type system with unsafe casts.
 package void emplaceRef(T, UT, Args...)(ref UT chunk, auto ref Args args)
 {
     // ensure args contains a context pointer to initialize chunk
-    static if (Args.length == 1)
+    static if (isStaticArray!T)
     {
-        enum gotCP = is(Unqual!Args == UT) || (isStaticArray!T &&
-            (is(Unqual!Args == ElementType!UT) ||
-                (isArray!Args && is(Unqual!(ElementType!Args) == ElementType!UT))));
+        static if (Args.length == 1)
+        {
+            enum maybeCP = is(Unqual!Args : UT) ||
+                is(Unqual!Args : ElementType!UT) ||
+                (isArray!Args && is(Unqual!(ElementType!Args) : ElementType!UT));
+        }
+        else enum maybeCP = false;
     }
-    else
-        enum gotCP = false;
+    else static if (isAggregateType!T && !is(T == interface) && Args.length)
+    {
+        // non-nested aggregate with nested member may be OK
+        // if args has an aggregate that could initialize it
+        enum aggCP(U) = isAggregateType!U && hasNested!U;
+        enum maybeCP = is(Unqual!Args : UT) ||
+            (!isNested!T && anySatisfy!(aggCP, Args));
+    }
+    else enum maybeCP = false;
 
-    static assert(!hasNested!T || gotCP,
+    static assert(!hasNested!T || maybeCP,
         convFormat("Cannot emplace a %s without a context pointer", T.stringof));
 
     static if (args.length == 0)
