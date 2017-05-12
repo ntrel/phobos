@@ -4259,13 +4259,15 @@ package void emplaceRef(T, UT, Args...)(ref UT chunk, auto ref Args args)
         }
         else enum maybeCP = false;
     }
-    else static if (isAggregateType!T && !is(T == interface) && Args.length)
+    else static if (isAggregateType!T && !is(T == interface))
     {
         // non-nested aggregate with nested member may be OK
         // if args has an aggregate that could initialize it
         enum aggCP(U) = isAggregateType!U && hasNested!U;
-        enum maybeCP = is(Unqual!Args : UT) ||
-            (!isNested!T && anySatisfy!(aggCP, Args));
+        static if (!isNested!T)
+            enum maybeCP = anySatisfy!(aggCP, Args);
+        else
+            enum maybeCP = true;
     }
     else enum maybeCP = false;
 
@@ -4999,7 +5001,6 @@ version(unittest) private class __conv_EmplaceTestClass
             void foo(){++i;}
         }
         S1 sa = void;
-        static assert(!__traits(compiles, emplace(&sa)));
         S1 sb;
         emplace(&sa, sb);
         sa.foo();
@@ -5012,7 +5013,6 @@ version(unittest) private class __conv_EmplaceTestClass
             this(this){}
         }
         S2 sa = void;
-        static assert(!__traits(compiles, emplace(&sa)));
         S2 sb;
         emplace(&sa, sb);
         sa.foo();
@@ -5029,10 +5029,6 @@ version(unittest) private class __conv_EmplaceTestClass
         void f(){i++;}
     }
     auto buf = new void[S.sizeof];
-
-    // no context pointer
-    static assert(!__traits(compiles, emplace!S(buf)));
-    static assert(!__traits(compiles, emplace!S(buf, 4)));
 
     S s;
     auto ps = emplace!S(buf, s);
