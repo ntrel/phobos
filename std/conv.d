@@ -4259,17 +4259,7 @@ package void emplaceRef(T, UT, Args...)(ref UT chunk, auto ref Args args)
         }
         else enum maybeCP = false;
     }
-    else static if (isAggregateType!T && !is(T == interface))
-    {
-        // non-nested aggregate with nested member may be OK
-        // if args has an aggregate that could initialize it
-        enum aggCP(U) = isAggregateType!U && hasNested!U;
-        static if (!isNested!T)
-            enum maybeCP = anySatisfy!(aggCP, Args);
-        else
-            enum maybeCP = true;
-    }
-    else enum maybeCP = false;
+    else enum maybeCP = isAggregateType!T && !is(T == interface);
 
     static assert(!hasNested!T || maybeCP,
         convFormat("Cannot emplace a %s without a context pointer", T.stringof));
