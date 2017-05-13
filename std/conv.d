@@ -4248,17 +4248,22 @@ buffer, without breaking the type system with unsafe casts.
 +/
 package void emplaceRef(T, UT, Args...)(ref UT chunk, auto ref Args args)
 {
-    // ensure args contains a context pointer to initialize chunk
-    static if (Args.length == 1)
+    // struct S(alias a) passes isNested, so allow template instances
+    //~ static if (is(T : Base!Args, alias Base, Args...))
+        //~ enum maybeCP = true;
+    //~ else
+    static if (isStaticArray!T && Args.length)
     {
-        enum gotCP = is(Unqual!Args == UT) || (isStaticArray!T &&
-            (is(Unqual!Args == ElementType!UT) ||
-                (isArray!Args && is(Unqual!(ElementType!Args) == ElementType!UT))));
+        enum maybeCP = isAggregateType!(Args[0]) ||
+            (isArray!(Args[0]) && isAggregateType!(ElementType!(Args[0])));
     }
     else
-        enum gotCP = false;
-
-    static assert(!hasNested!T || gotCP,
+    {
+        enum canProvideCP(U) = !isScalarType!U;
+        enum maybeCP = anySatisfy!(canProvideCP, Args);
+    }
+    // ensure args contains a context pointer to initialize nested T
+    static assert(!hasNested!T || maybeCP,
         convFormat("Cannot emplace a %s without a context pointer", T.stringof));
 
     static if (args.length == 0)
@@ -4521,6 +4526,12 @@ if (is(T == class))
     assert(inner.getI == 3);
 }
 
+version(unittest) private
+struct __conv_EmplaceTestStruct(alias a)
+{
+    void f(){a++;}
+}
+
 // context pointer
 unittest
 {
@@ -4531,6 +4542,13 @@ unittest
     }
     auto buf = new void[__traits(classInstanceSize, C)];
     static assert(!__traits(compiles, emplace!C(buf)));
+
+    alias S = __conv_EmplaceTestStruct!i;
+    S es = void;
+    S s;
+    emplace(&es, s);
+    es.f;
+    assert(i == 1);
 }
 
 @nogc pure nothrow @system unittest
