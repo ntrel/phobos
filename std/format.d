@@ -441,7 +441,7 @@ My friends are John, Nancy.
 uint formattedWrite(alias fmt, Writer, A...)(Writer w, A args)
 if (isSomeString!(typeof(fmt)))
 {
-    alias e = checkFormatException!(fmt, A);
+    alias e = formatException!(false, fmt, A);
     static assert(!e, e.msg);
     return .formattedWrite(w, fmt, args);
 }
@@ -3341,6 +3341,25 @@ template hasToString(T, Char)
     }
 }
 
+class N
+{
+    void toString(scope void delegate(const(char)[])@nogc sink) @nogc
+    {
+        sink("hi");
+    }
+}
+
+unittest
+{
+    N n = new N;
+    import std.format, std.stdio;
+    pragma(msg, hasToString!(N, char));
+    const(char)[] d;
+    void put(const char[] s)@nogc{d = s;}
+    formattedWrite(&put, "%s", n);
+    formattedWrite!"%s"(&put, n);
+    d.writeln;
+}
 // object formatting with toString
 private void formatObject(Writer, T, Char)(ref Writer w, ref T val, const ref FormatSpec!Char f)
 if (hasToString!(T, Char))
@@ -5745,13 +5764,28 @@ private bool needToSwapEndianess(Char)(const ref FormatSpec!Char f)
     assert(stream.data == "C");
 }
 
+package alias checkFormatException(alias fmt, Args...) =
+    formatException!(true, fmt, Args);
+
 // Used to check format strings are compatible with argument types
-package static const checkFormatException(alias fmt, Args...) =
+package static const formatException(bool orphanArgs, alias fmt, Args...) =
 {
+    import std.conv : text;
+    import std.exception : enforce;
+
+    // infer narrowest attributes for strict Aggregate.toString compatability
+    auto put(const char[] s) {}
     try
-        .format(fmt, Args.init);
+    {
+        auto n = formattedWrite(&put, fmt, Args.init);
+        static if (orphanArgs)
+        {
+            enforce!FormatException(n == Args.length,
+                text("Orphan format arguments: args[", n, "..", Args.length, "]"));
+        }
+    }
     catch (Exception e)
-        return (e.msg == ctfpMessage) ? null : e;
+        return (e.msg == ctfpMessage) ? null : e; // ignore floating point CTFE ex
     return null;
 }();
 
