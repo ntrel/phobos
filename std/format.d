@@ -441,7 +441,11 @@ My friends are John, Nancy.
 uint formattedWrite(alias fmt, Writer, A...)(Writer w, A args)
 if (isSomeString!(typeof(fmt)))
 {
-    alias e = formatException!(false, fmt, A);
+    alias Char = Unqual!(ElementEncodingType!(typeof(fmt)));
+    // infer narrowest attributes compatible with strictest Aggregate.toString
+    alias put = (const(Char)[] s) {};
+    alias e = getFormatEx!(.formattedWrite, put, fmt, A.init);
+
     static assert(!e, e.msg);
     return .formattedWrite(w, fmt, args);
 }
@@ -3343,7 +3347,7 @@ template hasToString(T, Char)
 
 class N
 {
-    void toString(scope void delegate(const(char)[])@nogc sink) @nogc
+    void toString(scope void delegate(const(char)[]) @nogc sink) @nogc
     {
         sink("hi");
     }
@@ -3352,11 +3356,13 @@ class N
 unittest
 {
     N n = new N;
-    import std.format, std.stdio;
+    import std.stdio;
     pragma(msg, hasToString!(N, char));
     const(char)[] d;
-    void put(const char[] s)@nogc{d = s;}
+    void put(const char[] s) @nogc { d = s; }
+    //~ void put(const char[] s) @nogc { assert(s == "hi"); }
     formattedWrite(&put, "%s", n);
+    d.writeln;
     formattedWrite!"%s"(&put, n);
     d.writeln;
 }
@@ -5765,24 +5771,14 @@ private bool needToSwapEndianess(Char)(const ref FormatSpec!Char f)
 }
 
 package alias checkFormatException(alias fmt, Args...) =
-    formatException!(true, fmt, Args);
+    getFormatEx!(format, fmt, Args.init);
 
 // Used to check format strings are compatible with argument types
-package static const formatException(bool orphanArgs, alias fmt, Args...) =
+package static const getFormatEx(alias fun, args...) =
 {
-    import std.conv : text;
-    import std.exception : enforce;
-
-    // infer narrowest attributes for strict Aggregate.toString compatability
-    auto put(const char[] s) {}
     try
     {
-        auto n = formattedWrite(&put, fmt, Args.init);
-        static if (orphanArgs)
-        {
-            enforce!FormatException(n == Args.length,
-                text("Orphan format arguments: args[", n, "..", Args.length, "]"));
-        }
+        fun(args);
     }
     catch (Exception e)
         return (e.msg == ctfpMessage) ? null : e; // ignore floating point CTFE ex
