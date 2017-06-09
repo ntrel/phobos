@@ -163,9 +163,9 @@ Returns:
  */
 enum bool isInputRange(R) =
     is(typeof((ref R r) => r))
-    && hasGetter!(R, "empty", "std.range.primitives", bool)
-    && hasGetter!(R, "front", "std.range.primitives")
-    && hasGetter!(R, "popFront", "std.range.primitives");
+    && is(ReturnType!((R r) => r.empty) == bool)
+    && is(typeof(lvalueOf!R.front))
+    && is(typeof(lvalueOf!R.popFront));
 
 ///
 @safe unittest
@@ -708,7 +708,7 @@ $(D E). An output range is defined functionally as a range that
 supports the operation $(D put(r, e)) as defined above.
  +/
  enum bool isOutputRange(R, E) =
-     callSupported!("put", "std.range.primitives", R, E);
+     is(typeof(put(lvalueOf!R, lvalueOf!E)));
 
 ///
 @safe unittest
@@ -770,11 +770,8 @@ are the same as for an input range, with the additional requirement
 that backtracking must be possible by saving a copy of the range
 object with $(D save) and using it later.
  */
-template isForwardRange(R)
-{
-    enum bool isForwardRange = isInputRange!R
-        && hasGetter!(R, "save", "std.range.primitives", R);
-}
+enum bool isForwardRange(R) = isInputRange!R
+    && hasGetter!(R, "save", "std.range.primitives", R);
 
 ///
 @safe unittest
@@ -813,8 +810,8 @@ element in the range. Calling $(D r.back) is allowed only if calling
 $(D r.empty) has, or would have, returned $(D false).))
  */
 enum bool isBidirectionalRange(R) = isForwardRange!R
-    && hasGetter!(R, "popBack", "std.range.primitives")
-    && hasGetter!(R, "back", "std.range.primitives", ElementType!R);
+    && is(typeof((ref R r) => r.popBack))
+    && is(ReturnType!((ref R r) => r.back) == ElementType!R);
 
 ///
 @safe unittest
@@ -874,20 +871,10 @@ variable-length encodings (UTF-8 and UTF-16 respectively). These types
 are bidirectional ranges only.
  */
 enum bool isRandomAccessRange(R) =
-    //is(typeof((ref R r) => r[1]) : ElementType!R function(ref R))
-     is(IndexedType!(R, int, void) == ElementType!R)
+    is(IndexedType!(R, int, void) == ElementType!R) // kept int for bkcomp
     && !isNarrowString!R
-    && (hasLength!R || isInfinite!R)
     && (isBidirectionalRange!R || isForwardRange!R && isInfinite!R)
-    && is(typeof((ref R r)
-    {
-        static if (is(typeof(r[$]) E))
-        {
-            static assert(is(E == ElementType!R));
-            static if (!isInfinite!R)
-                static assert(is(typeof(r[$ - 1]) == ElementType!R));
-        }
-    }));
+    && (isInfinite!R || hasLength!R && is(DollarType!(R, size_t) : size_t));
 
 import std.functional;
 
