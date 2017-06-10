@@ -162,10 +162,10 @@ Returns:
     true if R is an InputRange, false if not
  */
 enum bool isInputRange(R) =
-    is(typeof((ref R r) => r))
+    is(typeof((R r) => R.init))
     && is(ReturnType!((R r) => r.empty) == bool)
-    && is(typeof(lvalueOf!R.front))
-    && is(typeof(lvalueOf!R.popFront));
+    && is(typeof((R r) => r.front))
+    && is(typeof((R r) => r.popFront));
 
 ///
 @safe unittest
@@ -183,6 +183,15 @@ enum bool isInputRange(R) =
     static assert( isInputRange!(char[]));
     static assert(!isInputRange!(char[4]));
     static assert( isInputRange!(inout(int)[]));
+
+    static struct NotDefaultConstructible
+    {
+        @disable this();
+        void popFront();
+        @property bool empty();
+        @property int front();
+    }
+    static assert( isInputRange!NotDefaultConstructible);
 }
 
 /+
@@ -707,8 +716,8 @@ Returns $(D true) if $(D R) is an output range for elements of type
 $(D E). An output range is defined functionally as a range that
 supports the operation $(D put(r, e)) as defined above.
  +/
- enum bool isOutputRange(R, E) =
-     is(typeof(put(lvalueOf!R, lvalueOf!E)));
+enum bool isOutputRange(R, E) =
+    is(typeof(put(lvalueOf!R, lvalueOf!E)));
 
 ///
 @safe unittest
@@ -810,8 +819,8 @@ element in the range. Calling $(D r.back) is allowed only if calling
 $(D r.empty) has, or would have, returned $(D false).))
  */
 enum bool isBidirectionalRange(R) = isForwardRange!R
-    && is(typeof((ref R r) => r.popBack))
-    && is(ReturnType!((ref R r) => r.back) == ElementType!R);
+    && is(typeof((R r) => r.popBack))
+    && is(ReturnType!((R r) => r.back) == ElementType!R);
 
 ///
 @safe unittest
@@ -876,23 +885,8 @@ enum bool isRandomAccessRange(R) =
     && isForwardRange!R
     && (isBidirectionalRange!R || isInfinite!R)
     && (hasLength!R || isInfinite!R)
-    && (is(DollarType!(R, size_t) : size_t) || isInfinite!R);
-
-import std.functional;
-
-bool xyz(alias pred = "a == b", R, E)(R doesThisEnd, E withThis)
-if (isBidirectionalRange!R &&
-    is(typeof(binaryFun!pred(doesThisEnd.back, withThis)) : bool))
-{
-    return true;
-}
-
-unittest
-{
-    char[] a;
-    char b;
-    assert(xyz(a, b));
-}
+    && (isInfinite!R || !is(typeof(lvalueOf!R[$ - 1]))
+        || is(typeof(lvalueOf!R[$ - 1]) == ElementType!R));
 
 ///
 @safe unittest
@@ -1438,43 +1432,17 @@ static assert(isForwardRange!(typeof(r[1 .. 2])));
 static assert(hasLength!(typeof(r[1 .. 2])));
 ----
  */
-template hasSlicing(R)
-{
-    enum bool hasSlicing = isForwardRange!R && !isNarrowString!R && is(typeof(
-    (inout int = 0)
+enum bool hasSlicing(R) = isForwardRange!R
+    && !isNarrowString!R
+    && is(ReturnType!((R r) => r[1 .. 1].length) == size_t)
+    && (is(typeof(lvalueOf!R[1 .. 1]) == R) || isInfinite!R)
+    && (!is(typeof(lvalueOf!R[0 .. $])) || is(typeof(lvalueOf!R[0 .. $]) == R))
+    && (!is(typeof(lvalueOf!R[0 .. $])) || isInfinite!R
+        || is(typeof(lvalueOf!R[0 .. $ - 1]) == R))
+    && is(typeof((ref R r)
     {
-        R r = R.init;
-
-        static if (isInfinite!R)
-        {
-            typeof(r[1 .. 1]) s = r[1 .. 2];
-        }
-        else
-        {
-            static assert(is(typeof(r[1 .. 2]) == R));
-            R s = r[1 .. 2];
-        }
-
-        s = r[1 .. 2];
-
-        static if (is(typeof(r[0 .. $])))
-        {
-            static assert(is(typeof(r[0 .. $]) == R));
-            R t = r[0 .. $];
-            t = r[0 .. $];
-
-            static if (!isInfinite!R)
-            {
-                static assert(is(typeof(r[0 .. $ - 1]) == R));
-                R u = r[0 .. $ - 1];
-                u = r[0 .. $ - 1];
-            }
-        }
-
         static assert(isForwardRange!(typeof(r[1 .. 2])));
-        static assert(hasLength!(typeof(r[1 .. 2])));
     }));
-}
 
 ///
 @safe unittest
