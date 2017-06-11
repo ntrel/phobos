@@ -162,9 +162,10 @@ Returns:
     true if R is an InputRange, false if not
  */
 enum bool isInputRange(R) =
-    is(typeof((R r) => R.init))
+    is(typeof(R.init) == R)
     && is(ReturnType!((R r) => r.empty) == bool)
     && is(typeof((R r) => r.front))
+    && !is(ReturnType!((R r) => r.front) == void)
     && is(typeof((R r) => r.popFront));
 
 ///
@@ -192,6 +193,31 @@ enum bool isInputRange(R) =
         @property int front();
     }
     static assert( isInputRange!NotDefaultConstructible);
+
+    static struct NotDefaultConstructibleOrCopyable
+    {
+        @disable this();
+        @disable this(this);
+        void popFront();
+        @property bool empty();
+        @property int front();
+    }
+    static assert(isInputRange!NotDefaultConstructibleOrCopyable);
+
+    static struct Frontless
+    {
+        void popFront();
+        @property bool empty();
+    }
+    static assert(!isInputRange!Frontless);
+
+    static struct VoidFront
+    {
+        void popFront();
+        @property bool empty();
+        void front();
+    }
+    static assert(!isInputRange!VoidFront);
 }
 
 /+
