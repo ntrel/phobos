@@ -161,12 +161,17 @@ Params:
 Returns:
     true if R is an InputRange, false if not
  */
-enum bool isInputRange(R) =
-    is(typeof(R.init) == R)
-    && is(ReturnType!((R r) => r.empty) == bool)
-    && is(typeof((R r) => r.front))
-    && !is(ReturnType!((R r) => r.front) == void)
-    && is(typeof((R r) => r.popFront));
+template isInputRange(R)
+{
+    alias r = lvalueOf!R; /// Instance of R.
+    alias eval = (a) @property => a; /// Forces a call if a is a function.
+
+    enum bool isInputRange =
+        is(typeof(R.init) == R)
+        && is(typeof(r.empty.eval) == bool)
+        && is(typeof(r.front.eval))
+        && is(typeof({r.popFront;}));
+}
 
 ///
 @safe unittest
