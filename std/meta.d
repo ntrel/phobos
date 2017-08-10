@@ -1554,13 +1554,12 @@ if (stepSize != 0)
 }
 
 /**
-Aliases itself to $(D T[0]) if the boolean $(D condition) is $(D true)
-and to $(D T[1]) otherwise.
+Aliases itself to $(D A[0]) if the boolean $(D condition) is $(D true)
+and to $(D A[1]) otherwise.
  */
-template Select(bool condition, T...) if (T.length == 2)
+template Select(bool condition, A...) if (A.length == 2)
 {
-    import std.meta : Alias;
-    alias Select = Alias!(T[!condition]);
+    alias Select = Alias!(A[!condition]);
 }
 
 ///
@@ -1576,8 +1575,8 @@ template Select(bool condition, T...) if (T.length == 2)
     int a = 1;
     int b = 2;
     alias selA = Select!(true, a, b);
-    alias selB = Select!(false, a, b);
     assert(selA == 1);
+    alias selB = Select!(false, a, b);
     assert(selB == 2);
 
     // can select (compile-time) expressions
@@ -1592,6 +1591,16 @@ b). Otherwise, returns $(D b) without evaluating $(D a).
 A select(bool cond : true, A, B)(A a, lazy B b) { return a; }
 /// Ditto
 B select(bool cond : false, A, B)(lazy A a, B b) { return b; }
+
+///
+@safe unittest
+{
+    auto zero = 0;
+    auto a = select!true(null, 5 / zero);
+    assert(a is null);
+    auto b = select!false("".front, 4);
+    assert(b == 4);
+}
 
 @safe unittest
 {
