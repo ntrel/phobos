@@ -7312,57 +7312,26 @@ version(unittest) void freeFunc(string);
 
 
 
-// XXX Select & select should go to another module. (functional or algorithm?)
-
 /**
 Aliases itself to $(D T[0]) if the boolean $(D condition) is $(D true)
 and to $(D T[1]) otherwise.
  */
+deprecated("Use std.meta.Select instead")
 template Select(bool condition, T...) if (T.length == 2)
 {
     import std.meta : Alias;
     alias Select = Alias!(T[!condition]);
 }
 
-///
-@safe unittest
-{
-    // can select types
-    static assert(is(Select!(true, int, long) == int));
-    static assert(is(Select!(false, int, long) == long));
-    static struct Foo {}
-    static assert(is(Select!(false, const(int), const(Foo)) == const(Foo)));
-
-    // can select symbols
-    int a = 1;
-    int b = 2;
-    alias selA = Select!(true, a, b);
-    alias selB = Select!(false, a, b);
-    assert(selA == 1);
-    assert(selB == 2);
-
-    // can select (compile-time) expressions
-    enum val = Select!(false, -4, 9 - 6);
-    static assert(val == 3);
-}
-
 /**
 If $(D cond) is $(D true), returns $(D a) without evaluating $(D
 b). Otherwise, returns $(D b) without evaluating $(D a).
  */
+deprecated("Use std.meta.select instead")
 A select(bool cond : true, A, B)(A a, lazy B b) { return a; }
 /// Ditto
+deprecated("Use std.meta.select instead")
 B select(bool cond : false, A, B)(lazy A a, B b) { return b; }
-
-@safe unittest
-{
-    real pleasecallme() { return 0; }
-    int dontcallme() { assert(0); }
-    auto a = select!true(pleasecallme(), dontcallme());
-    auto b = select!false(dontcallme(), pleasecallme());
-    static assert(is(typeof(a) == real));
-    static assert(is(typeof(b) == real));
-}
 
 /++
     Determine if a symbol has a given
