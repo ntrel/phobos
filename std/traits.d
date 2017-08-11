@@ -7312,7 +7312,11 @@ version(unittest) void freeFunc(string);
 
 
 
+//@@@DEPRECATED_2018-05@@@
 /**
+$(RED This symbol is deprecated and will be removed May 2018.)
+Please use $(REF Select, std, meta) instead.
+
 Aliases itself to $(D T[0]) if the boolean $(D condition) is $(D true)
 and to $(D T[1]) otherwise.
  */
@@ -7323,7 +7327,11 @@ template Select(bool condition, T...) if (T.length == 2)
     alias Select = Alias!(T[!condition]);
 }
 
+//@@@DEPRECATED_2018-05@@@
 /**
+$(RED This symbol is deprecated and will be removed May 2018.)
+Please use $(REF select, std, meta) instead.
+
 If $(D cond) is $(D true), returns $(D a) without evaluating $(D
 b). Otherwise, returns $(D b) without evaluating $(D a).
  */
