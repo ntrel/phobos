@@ -1357,6 +1357,7 @@ enum FunctionAttribute : uint
 template functionAttributes(func...)
     if (func.length == 1 && isCallable!func)
 {
+    import std.meta : Select;
     // @bug: workaround for opCall
     alias FuncSym = Select!(is(typeof(__traits(getFunctionAttributes, func))),
                             func, Unqual!(FunctionTypeOf!func));

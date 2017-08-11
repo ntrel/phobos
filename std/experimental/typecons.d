@@ -22,6 +22,7 @@ module std.experimental.typecons;
 
 import std.meta; // : AliasSeq, allSatisfy;
 import std.traits;
+alias Select = std.meta.Select;
 
 import std.typecons : Tuple, tuple, Bind, DerivedFunctionType,
        isImplicitlyConvertible, mixinAll, staticIota,

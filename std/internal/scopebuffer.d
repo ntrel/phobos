@@ -100,6 +100,7 @@ if (isAssignable!T &&
 {
     import core.exception : onOutOfMemoryError;
     import core.stdc.string : memcpy;
+    import std.meta : Select;
 
 
     /**************************

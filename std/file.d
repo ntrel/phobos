@@ -87,6 +87,7 @@ import std.internal.cstring;
 import std.meta;
 import std.range.primitives;
 import std.traits;
+alias Select = std.meta.Select;
 import std.typecons;
 
 version (Windows)

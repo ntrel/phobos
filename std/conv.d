@@ -2073,6 +2073,7 @@ if (isSomeChar!(ElementType!Source) &&
 {
     static if (Target.sizeof < int.sizeof)
     {
+        import std.meta : Select;
         // smaller types are handled like integers
         auto v = .parse!(Select!(Target.min < 0, int, uint))(s);
         auto result = ()@trusted{ return cast(Target) v; }();

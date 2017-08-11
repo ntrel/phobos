@@ -24,6 +24,7 @@ import std.complex;
 import std.math;
 import std.range.primitives;
 import std.traits;
+import std.meta : Select;
 import std.typecons;
 
 version(unittest)

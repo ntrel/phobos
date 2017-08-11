@@ -19,6 +19,7 @@ module std.typecons;
 import core.stdc.stdint : uintptr_t;
 import std.meta; // : AliasSeq, allSatisfy;
 import std.traits;
+alias Select = std.meta.Select;
 
 ///
 @safe unittest

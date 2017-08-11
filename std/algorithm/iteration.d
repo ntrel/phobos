@@ -2772,6 +2772,7 @@ if (fun.length >= 1)
     auto reduce(R)(R r)
     if (isIterable!R)
     {
+        import std.meta : Select;
         import std.exception : enforce;
         alias E = Select!(isInputRange!R, ElementType!R, ForeachType!R);
         alias Args = staticMap!(ReduceSeedType!E, binfuns);
@@ -2835,6 +2836,7 @@ if (fun.length >= 1)
     if (isIterable!R)
     {
         import std.algorithm.internal : algoFormat;
+        import std.meta : Select;
         static assert(Args.length == fun.length,
             algoFormat("Seed %s does not have the correct amount of fields (should be %s)", Args.stringof, fun.length));
         alias E = Select!(isInputRange!R, ElementType!R, ForeachType!R);

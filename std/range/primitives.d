@@ -364,6 +364,7 @@ void put(R, E)(ref R r, E e)
 private void putChar(R, E)(ref R r, E e)
 if (isSomeChar!E)
 {
+    import std.meta : Select;
     ////@@@9186@@@: Can't use (E[]).init
     ref const( char)[] cstringInit();
     ref const(wchar)[] wstringInit();
