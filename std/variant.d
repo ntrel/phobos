@@ -2203,6 +2203,8 @@ if (Handlers.length > 0)
 // disallow a generic handler that does not apply to all types
 @system unittest
 {
+    import std.conv : to;
+
     Algebraic!(int, float) number = 2;
     // ok, x + 1 valid for int and float
     static assert( __traits(compiles, number.visit!(x => x + 1)));
@@ -2215,11 +2217,13 @@ if (Handlers.length > 0)
 
     Algebraic!(int, string) maybenumber = 2;
     // ok, x ~ "a" valid for string, x + 1 valid for int, only 1 generic
-    static assert( __traits(compiles, number.visit!((string x) => x ~ "a", x => x + 1)));
+    assert(maybenumber.visit!((string x) => x ~ "a", x => x.to!string) == "2");
+    maybenumber = "z";
+    assert(maybenumber.visit!((string x) => x ~ "a", x => x.to!string) == "za");
     // bad, x ~ "a" valid for string but not int
-    static assert(!__traits(compiles, number.visit!(x => x ~ "a")));
+    static assert(!__traits(compiles, maybenumber.visit!(x => x ~ "a")));
     // bad, two generics, each only applies in one case
-    static assert(!__traits(compiles, number.visit!(x => x + 1, x => x ~ "a")));
+    static assert(!__traits(compiles, maybenumber.visit!(x => x + 1, x => x ~ "a")));
 }
 
 /**
