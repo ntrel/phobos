@@ -10,6 +10,7 @@
  * $(TR $(TH Category) $(TH Templates))
  * $(TR $(TD Symbol Name _traits) $(TD
  *           $(LREF fullyQualifiedName)
+ *           $(LREF mangledName)
  *           $(LREF moduleName)
  *           $(LREF packageName)
  * ))
@@ -20,9 +21,10 @@
  *           $(LREF hasFunctionAttributes)
  *           $(LREF functionLinkage)
  *           $(LREF FunctionTypeOf)
+ *           $(LREF isCovariantWith)
+ *           $(LREF isFinal)
  *           $(LREF isSafe)
  *           $(LREF isUnsafe)
- *           $(LREF isFinal)
  *           $(LREF ParameterDefaults)
  *           $(LREF ParameterIdentifierTuple)
  *           $(LREF ParameterStorageClassTuple)
@@ -62,12 +64,9 @@
  *           $(LREF CopyTypeQualifiers)
  *           $(LREF CopyConstness)
  *           $(LREF isAssignable)
- *           $(LREF isCovariantWith)
  *           $(LREF isImplicitlyConvertible)
  * ))
- * $(TR $(TD SomethingTypeOf) $(TD
- *           $(LREF rvalueOf)
- *           $(LREF lvalueOf)
+ * $(TR $(TD Qualifiers) $(TD
  *           $(LREF InoutOf)
  *           $(LREF ConstOf)
  *           $(LREF SharedOf)
@@ -134,7 +133,8 @@
  *           $(LREF Promoted)
  * ))
  * $(TR $(TD Misc) $(TD
- *           $(LREF mangledName)
+ *           $(LREF lvalueOf)
+ *           $(LREF rvalueOf)
  *           $(LREF Select)
  *           $(LREF select)
  * ))
@@ -311,7 +311,7 @@ template ImmutableOf(T)   { alias ImmutableOf   =    immutable(T) ; }
     static assert(is(  ImmutableOf!int ==    immutable int));
 }
 
-/// Get qualifier template from the given type T
+/// Resolves to a template which will instantiate a given type `U` with the qualifiers from type `T`.
 template QualifierOf(T)
 {
          static if (is(T == shared(const U), U)) alias QualifierOf = SharedConstOf;
@@ -321,6 +321,13 @@ template QualifierOf(T)
     else static if (is(T ==    immutable U , U)) alias QualifierOf = ImmutableOf;
     else static if (is(T ==       shared U , U)) alias QualifierOf = SharedOf;
     else                                         alias QualifierOf = MutableOf;
+}
+
+///
+unittest
+{
+    alias Qual = QualifierOf!(shared const Object);
+    static assert(is(Qual!int == shared const int));
 }
 
 @safe unittest
@@ -1081,11 +1088,8 @@ template ParameterStorageClassTuple(func...)
     void func(ref int ctx, out real result, real param)
     {
     }
-    alias pstc = ParameterStorageClassTuple!func;
-    static assert(pstc.length == 3); // three parameters
-    static assert(pstc[0] == STC.ref_);
-    static assert(pstc[1] == STC.out_);
-    static assert(pstc[2] == STC.none);
+    static assert(ParameterStorageClassTuple!func ==
+        AliasSeq!(STC.ref_, STC.out_, STC.none));
 }
 
 /*****************
@@ -1131,14 +1135,8 @@ template extractParameterStorageClassFlags(Attribs...)
     static assert(ParameterStorageClassTuple!noparam.length == 0);
 
     ref int test(scope int*, ref int, out int, lazy int, int, return ref int i) { return i; }
-    alias test_pstc = ParameterStorageClassTuple!test;
-    static assert(test_pstc.length == 6);
-    static assert(test_pstc[0] == STC.scope_);
-    static assert(test_pstc[1] == STC.ref_);
-    static assert(test_pstc[2] == STC.out_);
-    static assert(test_pstc[3] == STC.lazy_);
-    static assert(test_pstc[4] == STC.none);
-    static assert(test_pstc[5] == STC.return_);
+    static assert(ParameterStorageClassTuple!test ==
+        AliasSeq!(STC.scope_, STC.ref_, STC.out_, STC.lazy_, STC.none, STC.return_));
 
     interface Test
     {
@@ -1978,10 +1976,10 @@ Returns:
 enum Variadic
 {
     no,       /// Function is not variadic.
-    c,        /// Function is a _C-style variadic function, which uses
-              /// core.stdc.stdarg
-              /// Function is a _D-style variadic function, which uses
-    d,        /// __argptr and __arguments.
+    c,        /** Function is a _C-style variadic function, which uses
+                  $(MREF core,stdc,stdarg) */
+    d,        /** Function is a _D-style variadic function, which uses
+                  `__argptr` and `__arguments`. */
     typesafe, /// Function is a typesafe variadic function.
 }
 
@@ -4634,10 +4632,11 @@ template ImplicitConversionTargets(T)
         alias ImplicitConversionTargets = AliasSeq!();
 }
 
+///
 @safe unittest
 {
-    static assert(is(ImplicitConversionTargets!(double)[0] == real));
-    static assert(is(ImplicitConversionTargets!(string)[0] == const(char)[]));
+    static assert(is(ImplicitConversionTargets!(double) == AliasSeq!real));
+    static assert(is(ImplicitConversionTargets!(string) == AliasSeq!(const(char)[])));
 }
 
 /**
