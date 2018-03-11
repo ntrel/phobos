@@ -1124,6 +1124,7 @@ template templateOr(Preds...)
  * Converts an input range $(D range) to an alias sequence.
  */
 template aliasSeqOf(alias range)
+if (__traits(compiles, {import std.range.primitives; enum e = range.front;}))
 {
     import std.traits : isArray, isNarrowString;
 
@@ -1153,7 +1154,7 @@ template aliasSeqOf(alias range)
         }
         else
         {
-            static assert(false, "Cannot transform range of type " ~ ArrT.stringof ~ " into a AliasSeq.");
+            static assert(false, "Cannot transform type " ~ ArrT.stringof ~ " into an AliasSeq.");
         }
     }
 }
@@ -1212,6 +1213,39 @@ template aliasSeqOf(alias range)
     {
         static assert(V == REF[I]);
     }
+}
+
+template aliasSeqOf(alias r)
+if (!__traits(compiles, {import std.range.primitives; enum e = range.front;}))
+{
+    import std.range.primitives;
+    static assert(__traits(compiles, {enum e = r.length;}), "`r.length` is not static");
+    static assert(__traits(compiles, {return r[];}), "`r[]` is not valid");
+    static assert(isInputRange!(typeof(r[])), "`r[]` must be an input range");
+    // length might not be the number of elements
+    static assert(!isNarrowString!(r[]), "Narrow strings not supported");
+    static typeof(r[]) slice;
+
+    @property auto ref head() {
+        slice = r;
+        return slice.front;
+    }
+    @property auto ref next() {
+        slice.popFront;
+        return slice.front;
+    }
+
+    alias gen = {
+        string s = `alias aliasSeqOf = AliasSeq!(head`;
+        foreach (_; 1..r.length)
+            s ~= `, next`;
+        s ~= `);`;
+        return s;
+    };
+    static if (r.length)
+        mixin(gen());
+    else
+        alias aliasSeqOf = AliasSeq!();
 }
 
 /**
