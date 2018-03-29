@@ -2682,7 +2682,7 @@ if (is(typeof(lhs.proxySwap(rhs))))
 }
 
 /**
-Swaps two elements in-place of a range `r`,
+Swaps two elements of a range `r` in-place,
 specified by their indices `i1` and `i2`.
 
 Params:
@@ -2695,6 +2695,17 @@ void swapAt(R)(auto ref R r, size_t i1, size_t i2)
     static if (is(typeof(&r.swapAt)))
     {
         r.swapAt(i1, i2);
+    }
+    else static if (isArray!R)
+    {
+        version(D_NoBoundsChecks){}
+        else
+        {
+            import std.exception;
+            const l = r.length;
+            enforce((i1 < l) + (i2 < l) == 2);
+        }
+        swap(r.ptr[i1], r.ptr[i2]);
     }
     else static if (is(typeof(&r[i1])))
     {
