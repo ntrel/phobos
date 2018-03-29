@@ -687,7 +687,7 @@ if (distinctFieldNames!(Specs))
          *
          * Params:
          *     values = A compatible static array to build the `Tuple` from.
-         *              Array slices are not supported.
+         *              Array slices are supported when the slice length is statically known.
          */
         this(U, size_t n)(U[n] values)
         if (n == Types.length && allSatisfy!(isBuildableFrom!U, Types))
@@ -703,6 +703,10 @@ if (distinctFieldNames!(Specs))
         {
             int[2] ints;
             Tuple!(int, int) t = ints;
+
+            int[] s = [0,1,2,3];
+            Tuple!(int, int) u = s[1..3];
+            assert(u == tuple(1,2));
         }
 
         /**
