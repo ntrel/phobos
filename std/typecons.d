@@ -442,7 +442,7 @@ private enum bool distinctFieldNames(names...) = __traits(compiles,
 {
     static foreach (__name; names)
         static if (is(typeof(__name) : string))
-            mixin("enum int " ~ __name ~ " = 0;");
+            mixin("enum int ", __name, " = 0;");
 });
 
 @safe unittest
@@ -514,7 +514,7 @@ private enum areCompatibleTuples(Tup1, Tup2, string op) =
             static if (op == "=")
                 lhs = rhs;
             else
-                auto result = mixin("lhs "~op~" rhs");
+                auto result = mixin("lhs ", op, " rhs");
         }}
     }));
 
@@ -4920,7 +4920,7 @@ private static:
             //
             alias target = methods[$ - 1];
             enum ith = methods.length - 1;
-            mixin("alias " ~ INTERNAL_FUNCINFO_ID!(name, ith) ~ " = FuncInfo!target;");
+            mixin("alias ", INTERNAL_FUNCINFO_ID!(name, ith), " = FuncInfo!target;");
         }
     }
 
@@ -6141,7 +6141,7 @@ package template GetOverloadedMethods(T)
         {
             alias follows = AliasSeq!();
         }
-        else static if (!__traits(compiles, mixin("T."~allMembers[i])))
+        else static if (!__traits(compiles, mixin("T.", allMembers[i])))
         {
             alias follows = follows!(i + 1);
         }
@@ -6975,7 +6975,7 @@ mixin template Proxy(alias a)
      * 'static if' in the definition of Proxy or T.
      */
     private enum bool accessibleFrom(T) =
-        is(typeof((T* self){ cast(void) mixin("(*self)."~__traits(identifier, a)); }));
+        is(typeof((T* self){ cast(void) mixin("(*self).", __traits(identifier, a)); }));
 
     static if (is(typeof(this) == class))
     {
@@ -6983,7 +6983,7 @@ mixin template Proxy(alias a)
         {
             if (auto b = cast(typeof(this))o)
             {
-                return a == mixin("b."~__traits(identifier, a));
+                return a == mixin("b.", __traits(identifier, a));
             }
             return false;
         }
@@ -7003,8 +7003,8 @@ mixin template Proxy(alias a)
         {
             if (auto b = cast(typeof(this))o)
             {
-                return a < mixin("b."~__traits(identifier, a)) ? -1
-                     : a > mixin("b."~__traits(identifier, a)) ? +1 : 0;
+                return a < mixin("b.", __traits(identifier, a)) ? -1
+                     : a > mixin("b.", __traits(identifier, a)) ? +1 : 0;
             }
             static if (is(ValueType == class))
                 return a.opCmp(o);
@@ -7048,7 +7048,7 @@ mixin template Proxy(alias a)
         {
             static if (is(immutable B == immutable typeof(this)))
             {
-                return a == mixin("b."~__traits(identifier, a));
+                return a == mixin("b.", __traits(identifier, a));
             }
             else
                 return a == b;
@@ -7094,17 +7094,17 @@ mixin template Proxy(alias a)
     auto ref opSlice(this X      )()                           { return a[]; }
     auto ref opSlice(this X, B, E)(auto ref B b, auto ref E e) { return a[b .. e]; }
 
-    auto ref opUnary     (string op, this X      )()                           { return mixin(op~"a"); }
-    auto ref opIndexUnary(string op, this X, D...)(auto ref D i)               { return mixin(op~"a[i]"); }
-    auto ref opSliceUnary(string op, this X      )()                           { return mixin(op~"a[]"); }
-    auto ref opSliceUnary(string op, this X, B, E)(auto ref B b, auto ref E e) { return mixin(op~"a[b .. e]"); }
+    auto ref opUnary     (string op, this X      )()                           { return mixin(op, "a"); }
+    auto ref opIndexUnary(string op, this X, D...)(auto ref D i)               { return mixin(op, "a[i]"); }
+    auto ref opSliceUnary(string op, this X      )()                           { return mixin(op, "a[]"); }
+    auto ref opSliceUnary(string op, this X, B, E)(auto ref B b, auto ref E e) { return mixin(op, "a[b .. e]"); }
 
     auto ref opBinary(string op, this X, B)(auto ref B b)
     if (op == "in" && is(typeof(a in b)) || op != "in")
     {
-        return mixin("a "~op~" b");
+        return mixin("a ", op, " b");
     }
-    auto ref opBinaryRight(string op, this X, B)(auto ref B b) { return mixin("b "~op~" a"); }
+    auto ref opBinaryRight(string op, this X, B)(auto ref B b) { return mixin("b ", op, " a"); }
 
     static if (!is(typeof(this) == class))
     {
@@ -7113,7 +7113,7 @@ mixin template Proxy(alias a)
         {
             auto ref opAssign(this X)(auto ref typeof(this) v)
             {
-                a = mixin("v."~__traits(identifier, a));
+                a = mixin("v.", __traits(identifier, a));
                 return this;
             }
         }
@@ -7130,19 +7130,19 @@ mixin template Proxy(alias a)
 
     auto ref opOpAssign     (string op, this X, V      )(auto ref V v)
     {
-        return mixin("a = a "~op~" v");
+        return mixin("a = a ", op, " v");
     }
     auto ref opIndexOpAssign(string op, this X, V, D...)(auto ref V v, auto ref D i)
     {
-        return mixin("a[i] "   ~op~"= v");
+        return mixin("a[i] ", op, "= v");
     }
     auto ref opSliceOpAssign(string op, this X, V      )(auto ref V v)
     {
-        return mixin("a[] "    ~op~"= v");
+        return mixin("a[] ", op, "= v");
     }
     auto ref opSliceOpAssign(string op, this X, V, B, E)(auto ref V v, auto ref B b, auto ref E e)
     {
-        return mixin("a[b .. e] "~op~"= v");
+        return mixin("a[b .. e] ", op, "= v");
     }
 
     template opDispatch(string name)
@@ -7150,27 +7150,27 @@ mixin template Proxy(alias a)
         static if (is(typeof(__traits(getMember, a, name)) == function))
         {
             // non template function
-            auto ref opDispatch(this X, Args...)(auto ref Args args) { return mixin("a."~name~"(args)"); }
+            auto ref opDispatch(this X, Args...)(auto ref Args args) { return mixin("a.", name, "(args)"); }
         }
-        else static if (is(typeof({ enum x = mixin("a."~name); })))
+        else static if (is(typeof({ enum x = mixin("a.", name); })))
         {
             // built-in type field, manifest constant, and static non-mutable field
-            enum opDispatch = mixin("a."~name);
+            enum opDispatch = mixin("a.", name);
         }
-        else static if (__traits(isTemplate, mixin("a."~name)))
+        else static if (__traits(isTemplate, mixin("a.", name)))
         {
             // member template
             template opDispatch(T...)
             {
                 enum targs = T.length ? "!T" : "";
-                auto ref opDispatch(this X, Args...)(auto ref Args args){ return mixin("a."~name~targs~"(args)"); }
+                auto ref opDispatch(this X, Args...)(auto ref Args args){ return mixin("a.", name, targs, "(args)"); }
             }
         }
         else
         {
             // field or property function
-            @property auto ref opDispatch(this X)()                { return mixin("a."~name);        }
-            @property auto ref opDispatch(this X, V)(auto ref V v) { return mixin("a."~name~" = v"); }
+            @property auto ref opDispatch(this X)()                { return mixin("a.", name);        }
+            @property auto ref opDispatch(this X, V)(auto ref V v) { return mixin("a.", name, " = v"); }
         }
 
     }
@@ -9298,7 +9298,7 @@ private template replaceTypeInFunctionTypeUnless(alias pred, From, To, fun)
         return result;
     }
 
-    mixin("alias replaceTypeInFunctionTypeUnless = " ~ gen() ~ ";");
+    mixin("alias replaceTypeInFunctionTypeUnless = " , gen() , ";");
 }
 
 @safe unittest

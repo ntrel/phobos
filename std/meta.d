@@ -988,7 +988,7 @@ if (isIterable!(typeof(iter)) && !isInfinite!(typeof(iter)))
     struct Impl
     {
         static foreach (size_t i, el; iter.array)
-            mixin(`auto e` ~ i.stringof ~ ` = el;`);
+            mixin(`auto e`, i, ` = el;`);
     }
     enum aliasSeqOf = Impl.init.tupleof;
 }

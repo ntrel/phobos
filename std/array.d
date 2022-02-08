@@ -4018,11 +4018,11 @@ if (isDynamicArray!A)
      * args = Arguments to pass to the method.
      */
     void opDispatch(string fn, Args...)(Args args)
-    if (__traits(compiles, (Appender!A a) => mixin("a." ~ fn ~ "(args)")))
+    if (__traits(compiles, (Appender!A a) => mixin("a.", fn, "(args)")))
     {
         // we do it this way because we can't cache a void return
         scope(exit) *this.arr = impl[];
-        mixin("return impl." ~ fn ~ "(args);");
+        return mixin("impl.", fn, "(args);");
     }
 
     /**
