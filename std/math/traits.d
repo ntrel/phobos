@@ -23,17 +23,19 @@ import std.traits : isFloatingPoint, isIntegral, isNumeric, isSigned;
 
 /*********************************
  * Determines if $(D_PARAM x) is NaN.
+ * Note:
+ * This is the same as `x is X.nan`.
  * Params:
  *  x = a floating point number.
  * Returns:
- *  `true` if $(D_PARAM x) is Nan.
+ *  `true` if $(D_PARAM x) is NaN.
  */
 bool isNaN(X)(X x) @nogc @trusted pure nothrow
 if (isFloatingPoint!(X))
 {
     version (all)
     {
-        return x != x;
+        return x is X.nan;
     }
     else
     {
