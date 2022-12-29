@@ -4626,6 +4626,7 @@ private struct DirIteratorImpl
     // stat (since we should only need lstat in this case and it would
     // be more efficient to not call stat in addition to lstat).
     bool _followSymlink;
+    void delegate(FileException) _onError;
     DirEntry _cur;
     DirHandle[] _stack;
     DirEntry[] _stashed; //used in depth first mode
@@ -4651,6 +4652,22 @@ private struct DirIteratorImpl
         return de;
     }
 
+    private void cerror(scope const(char)[] name, string file = __FILE__, size_t line = __LINE__)
+    {
+        version (Windows)
+        {
+            auto e = new FileException(name, .GetLastError(), file, line);
+        }
+        else version (Posix)
+        {
+            auto e = new FileException(name, .errno, file, line);
+        }
+        if (_onError)
+            _onError(e);
+        else
+            throw e;
+    }
+
     version (Windows)
     {
         WIN32_FIND_DATAW _findinfo;
@@ -4671,7 +4688,8 @@ private struct DirIteratorImpl
             }
 
             HANDLE h = trustedFindFirstFileW(searchPattern, &_findinfo);
-            cenforce(h != INVALID_HANDLE_VALUE, directory);
+            if (h == INVALID_HANDLE_VALUE)
+                cerror(directory);
             _stack ~= DirHandle(directory, h);
             return toNext(false, &_findinfo);
         }
@@ -4740,7 +4758,8 @@ private struct DirIteratorImpl
             }
 
             auto h = directory.length ? trustedOpendir(directory) : trustedOpendir(".");
-            cenforce(h, directory);
+            if (!h)
+                cerror(directory);
             _stack ~= (DirHandle(directory, h));
             return next();
         }
@@ -4784,11 +4803,12 @@ private struct DirIteratorImpl
         }
     }
 
-    this(R)(R pathname, SpanMode mode, bool followSymlink)
+    this(R)(R pathname, SpanMode mode, bool followSymlink, void delegate(FileException) onError)
         if (isSomeFiniteCharInputRange!R)
     {
         _mode = mode;
         _followSymlink = followSymlink;
+        _onError = onError;
 
         static if (isNarrowString!R && is(immutable ElementEncodingType!R == immutable char))
             alias pathnameStr = pathname;
@@ -4875,9 +4895,10 @@ struct _DirIterator(bool useDIP1000)
 private:
     SafeRefCounted!(DirIteratorImpl, RefCountedAutoInitialize.no) impl;
 
-    this(string pathname, SpanMode mode, bool followSymlink) @trusted
+    this(string pathname, SpanMode mode, bool followSymlink,
+        void delegate(FileException) onError) @trusted
     {
-        impl = typeof(impl)(pathname, mode, followSymlink);
+        impl = typeof(impl)(pathname, mode, followSymlink, onError);
     }
 public:
     @property bool empty() @trusted { return impl.empty; }
@@ -4976,9 +4997,10 @@ foreach (d; dFiles)
 // For some reason, doing the same alias-to-a-template trick as with DirIterator
 // does not work here.
 auto dirEntries(bool useDIP1000 = dip1000Enabled)
-    (string path, SpanMode mode, bool followSymlink = true)
+    (string path, SpanMode mode, bool followSymlink = true,
+    void delegate(FileException) onError = null)
 {
-    return _DirIterator!useDIP1000(path, mode, followSymlink);
+    return _DirIterator!useDIP1000(path, mode, followSymlink, onError);
 }
 
 /// Duplicate functionality of D1's `std.file.listdir()`:
