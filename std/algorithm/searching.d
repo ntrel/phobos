@@ -3019,7 +3019,7 @@ if (isForwardRange!R1 && isForwardRange!R2)
         }
         return FindSplitResult!(1,
             typeof(takeExactly(original, pos1)),
-            typeof(takeExactly(original, pos1)), typeof(h))(
+            typeof(takeExactly(original, pos1)), R1)(
             takeExactly(original, pos1),
             takeExactly(haystack, pos2 - pos1), h);
     }
@@ -3334,6 +3334,240 @@ if (isForwardRange!R1 && isForwardRange!R2)
     auto split = var.findSplitBefore!q{a == a}(var);
     assert(split[0] == "");
     assert(split[1] == "abc");
+}
+
+/**
+Finds the first element of `haystack` that satisfies `pred` and
+returns a tuple `result` as follows:
+
+$(UL
+$(LI `result[0]` is the portion of `haystack` preceeding the match)
+$(LI `result[1]` is the element that satisfies `pred`)
+$(LI `result[2]` is the portion of `haystack` after the match.)
+)
+
+If no match was found, `result[0]` comprehends `haystack`
+entirely and `result[2]` is empty.
+
+If `haystack` is a random-access range, the first and last components of the tuple have
+the same type as `haystack`. Otherwise, `haystack` must be a
+$(REF_ALTTEXT forward range, isForwardRange, std,range,primitives) and
+the type of `result[0]` is the same as the result of $(REF takeExactly, std,range).
+
+For more information about `pred` see $(LREF find).
+
+Params:
+    pred = Predicate to match an element.
+    haystack = The forward range to search.
+
+Returns:
+A sub-type of `Tuple` (see above for details), defining `opCast!bool`, which
+returns `true` when there was a match and `false` otherwise.
+ */
+auto findSplit(alias pred, R)(R haystack)
+if (isForwardRange!R)
+{
+    alias E = ElementType!R;
+
+    static if (isSomeString!R || (isRandomAccessRange!R && hasSlicing!R && hasLength!R))
+    {
+        auto balance = find!pred(haystack);
+        immutable pos = haystack.length - balance.length;
+        alias Res = FindSplitResult!(2, R, E, R);
+        return balance.length ?
+            Res(haystack[0 .. pos], balance[0], haystack[pos + 1 .. haystack.length]) :
+            Res(haystack, E.init, R.init);
+    }
+    else
+    {
+        import std.range : takeExactly;
+        auto original = haystack.save;
+        size_t i;
+        alias Res = FindSplitResult!(2, typeof(takeExactly(original, i)), E, R);
+        while (!haystack.empty)
+        {
+            if (unaryFun!pred(haystack.front))
+            {
+                return Res(takeExactly(original, i), haystack.front,
+                    { haystack.popFront; return haystack; }());
+            }
+            i++;
+            haystack.popFront;
+        }
+        return Res(takeExactly(original, i), E.init, R.init);
+    }
+}
+
+///
+@safe pure nothrow unittest
+{
+    auto r = [2, 4, 5, 6, 7].findSplit!(a => a & 1);
+    assert(r);
+    assert(r[0] == [2, 4]);
+    assert(r[1] == 5);
+    assert(r[2] == [6, 7]);
+}
+
+@safe pure nothrow unittest
+{
+    auto r = [2, 4, 6].findSplit!(a => a & 1);
+    assert(!r);
+}
+
+/// Ditto
+version (none)
+auto findSplitBefore(alias pred = "a == b", R1, R2)(R1 haystack, R2 needle)
+if (isForwardRange!R1 && isForwardRange!R2)
+{
+    static struct Result(S1, S2) if (isForwardRange!S1 &&
+                                     isForwardRange!S2)
+    {
+        this(S1 pre, S2 post)
+        {
+            asTuple = typeof(asTuple)(pre, post);
+        }
+        void opAssign(typeof(asTuple) rhs)
+        {
+            asTuple = rhs;
+        }
+        Tuple!(S1, S2) asTuple;
+        static if (hasConstEmptyMember!(typeof(asTuple[1])))
+        {
+            bool opCast(T : bool)() const
+            {
+                return !asTuple[1].empty;
+            }
+        }
+        else
+        {
+            bool opCast(T : bool)()
+            {
+                return !asTuple[1].empty;
+            }
+        }
+        alias asTuple this;
+    }
+
+    static if (isSomeString!R1 && isSomeString!R2
+            || (isRandomAccessRange!R1 && hasLength!R1 && hasSlicing!R1 && hasLength!R2))
+    {
+        auto balance = find!pred(haystack, needle);
+        immutable pos = haystack.length - balance.length;
+        return Result!(typeof(haystack[0 .. pos]),
+                       typeof(haystack[pos .. haystack.length]))(haystack[0 .. pos],
+                                                                 haystack[pos .. haystack.length]);
+    }
+    else
+    {
+        import std.range : takeExactly;
+        auto original = haystack.save;
+        auto h = haystack.save;
+        auto n = needle.save;
+        size_t pos1, pos2;
+        while (!n.empty && !h.empty)
+        {
+            if (binaryFun!pred(h.front, n.front))
+            {
+                h.popFront();
+                n.popFront();
+                ++pos2;
+            }
+            else
+            {
+                haystack.popFront();
+                n = needle.save;
+                h = haystack.save;
+                pos2 = ++pos1;
+            }
+        }
+        if (!n.empty) // incomplete match at the end of haystack
+        {
+            pos1 = pos2;
+            haystack = h;
+        }
+        return Result!(typeof(takeExactly(original, pos1)),
+                       typeof(haystack))(takeExactly(original, pos1),
+                                         haystack);
+    }
+}
+
+/// Ditto
+version (none)
+auto findSplitAfter(alias pred = "a == b", R1, R2)(R1 haystack, R2 needle)
+if (isForwardRange!R1 && isForwardRange!R2)
+{
+    static struct Result(S1, S2) if (isForwardRange!S1 &&
+                                     isForwardRange!S2)
+    {
+        this(S1 pre, S2 post)
+        {
+            asTuple = typeof(asTuple)(pre, post);
+        }
+        void opAssign(typeof(asTuple) rhs)
+        {
+            asTuple = rhs;
+        }
+        Tuple!(S1, S2) asTuple;
+        static if (hasConstEmptyMember!(typeof(asTuple[1])))
+        {
+            bool opCast(T : bool)() const
+            {
+                return !asTuple[0].empty;
+            }
+        }
+        else
+        {
+            bool opCast(T : bool)()
+            {
+                return !asTuple[0].empty;
+            }
+        }
+        alias asTuple this;
+    }
+
+    static if (isSomeString!R1 && isSomeString!R2
+            || isRandomAccessRange!R1 && hasLength!R1 && hasSlicing!R1 && hasLength!R2)
+    {
+        auto balance = find!pred(haystack, needle);
+        immutable pos = balance.empty ? 0 : haystack.length - balance.length + needle.length;
+        return Result!(typeof(haystack[0 .. pos]),
+                       typeof(haystack[pos .. haystack.length]))(haystack[0 .. pos],
+                                                                 haystack[pos .. haystack.length]);
+    }
+    else
+    {
+        import std.range : takeExactly;
+        auto original = haystack.save;
+        auto h = haystack.save;
+        auto n = needle.save;
+        size_t pos1, pos2;
+        while (!n.empty)
+        {
+            if (h.empty)
+            {
+                // Failed search
+                return Result!(typeof(takeExactly(original, 0)),
+                               typeof(original))(takeExactly(original, 0),
+                                                 original);
+            }
+            if (binaryFun!pred(h.front, n.front))
+            {
+                h.popFront();
+                n.popFront();
+                ++pos2;
+            }
+            else
+            {
+                haystack.popFront();
+                n = needle.save;
+                h = haystack.save;
+                pos2 = ++pos1;
+            }
+        }
+        return Result!(typeof(takeExactly(original, pos2)),
+                       typeof(h))(takeExactly(original, pos2),
+                                  h);
+    }
 }
 
 // minCount
