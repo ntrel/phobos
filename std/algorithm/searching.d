@@ -3373,10 +3373,11 @@ if (isForwardRange!R)
     {
         auto balance = find!pred(haystack);
         immutable pos = haystack.length - balance.length;
-        alias Res = FindSplitResult!(2, R, E, R);
+        alias S = typeof(haystack[0 .. pos]);
+        alias Res = FindSplitResult!(2, S, E, S);
         return balance.length ?
             Res(haystack[0 .. pos], balance[0], haystack[pos + 1 .. haystack.length]) :
-            Res(haystack, E.init, R.init);
+            Res(haystack, E.init, S.init);
     }
     else
     {
